@@ -29,8 +29,6 @@ function eum_plugin_deactivate()
   // Add any deactivation tasks here
 }
 
-// Add plugin functionality here
-
 // Add admin menu
 function eum_add_admin_menu()
 {
@@ -125,16 +123,15 @@ function eum_handle_export_csv()
 function eum_generate_csv()
 {
   // Headers for CSV
-  $headers = array('Page Title', 'URL', 'Yoast Meta Title', 'Meta Description', 'Post Type', 'Publish Status');
+  $headers = array('Page Title', 'URL', 'Meta Title', 'Meta Description', 'Post Type', 'Publish Status');
 
   // Check if character count option is checked
   $include_character_count = isset($_POST['eum_character_count']) && $_POST['eum_character_count'] == 1;
 
   // Add headers for character count columns if option is checked
   if ($include_character_count) {
-    $headers[] = 'Page Title Character Count';
-    $headers[] = 'Yoast Meta Title Character Count';
-    $headers[] = 'Meta Description Character Count';
+    $headers[] = 'Meta Title Char. Count';
+    $headers[] = 'Meta Description Char. Count';
   }
 
   // Get selected post types
@@ -158,7 +155,19 @@ function eum_generate_csv()
     foreach ($posts as $post) {
       $title = get_the_title($post->ID);
       $url = get_permalink($post->ID);
+
+      // Get Yoast SEO meta title
       $yoast_meta_title = get_post_meta($post->ID, '_yoast_wpseo_title', true);
+
+      // If Yoast SEO meta title is explicitly set, use it
+      if (!empty($yoast_meta_title)) {
+        // $yoast_meta_title = $yoast_meta_title;
+        $yoast_meta_title = wpseo_replace_vars(get_post_meta($post->ID, '_yoast_wpseo_title', true), $post);
+      } else {
+        // If Yoast SEO meta title is not set, use post title with site title appended
+        $yoast_meta_title = $title . ' - ' . get_bloginfo('name');
+      }
+
       $meta_description = get_post_meta($post->ID, '_yoast_wpseo_metadesc', true);
 
       // Get post type and publish status
@@ -176,7 +185,6 @@ function eum_generate_csv()
 
       // Add character counts if option is checked
       if ($include_character_count) {
-        $row[] = strlen($title);
         $row[] = strlen($yoast_meta_title);
         $row[] = strlen($meta_description);
       }
@@ -210,6 +218,7 @@ function eum_generate_csv()
   ob_flush();
   exit();
 }
+
 
 
 ?>
