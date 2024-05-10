@@ -12,15 +12,6 @@ The Export URLs and Meta plugin is a WordPress plugin designed to export a CSV f
 - Add character count for titles and descriptions in the CSV
 - Choose the publish status of the exported posts (published, drafts, private, all)
 
-## Installation
-
-1. Download the plugin zip file.
-2. Log in to your WordPress dashboard.
-3. Go to Plugins > Add New.
-4. Click on the "Upload Plugin" button.
-5. Choose the plugin zip file you downloaded and click "Install Now".
-6. After installation, click on "Activate Plugin" to activate it.
-
 ## Usage
 
 1. After activating the plugin, go to Settings > Export URLs and Meta in the WordPress admin panel.
