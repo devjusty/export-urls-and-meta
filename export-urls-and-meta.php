@@ -2,7 +2,7 @@
 /*
 Plugin Name: Export URLs and Meta
 Description: Custom WordPress plugin to export a CSV file of all published pages with their titles, URLs, and meta descriptions.
-Version: 0.0.2
+Version: 0.0.3
 Author: Justin Thompson
 */
 
@@ -104,29 +104,56 @@ add_action('admin_init', 'eum_handle_export_csv');
 function eum_handle_export_csv()
 {
   if (isset($_POST['eum_export_csv']) && $_POST['eum_export_csv'] == 1) {
+    // Sanitize post data
+    $post_types = isset($_POST['eum_post_types']) ? array_map('sanitize_text_field', $_POST['eum_post_types']) : array();
+    $include_product_categories = isset($_POST['eum_include_product_categories']) ? intval($_POST['eum_include_product_categories']) : 0;
+    $include_character_count = isset($_POST['eum_character_count']) ? intval($_POST['eum_character_count']) : 0;
+    $publish_status = isset($_POST['eum_publish_status']) ? sanitize_text_field($_POST['eum_publish_status']) : 'publish';
+
     // Check nonce for security
     if (!isset($_POST['eum_export_nonce_field']) || !wp_verify_nonce($_POST['eum_export_nonce_field'], 'eum_export_nonce')) {
-      return;
+      // Nonce verification failed, display an error message and halt further processing
+      wp_die('Security check failed. Please try again.');
     }
 
     // Check user capability
     if (!current_user_can('manage_options')) {
-      return;
+      // User does not have the required capability, display an error message and halt further processing
+      wp_die('You do not have permission to perform this action.');
     }
 
     // Generate CSV
-    eum_generate_csv();
+    $success = eum_generate_csv($post_types, $include_product_categories, $include_character_count, $publish_status);
+
+    // Check if CSV generation was successful
+    if (!$success) {
+      // CSV generation failed, display an error message
+      wp_die('Failed to generate CSV. Please try again later.');
+    }
   }
 }
 
 // Function to generate CSV
-function eum_generate_csv()
+function
+eum_generate_csv($post_types, $include_product_categories, $include_character_count, $publish_status)
 {
+  // Sanitize post types array
+  $post_types = array_map('sanitize_text_field', $post_types);
+
+  // Sanitize include product categories flag
+  $include_product_categories = intval($include_product_categories);
+
+  // Sanitize include character count flag
+  $include_character_count = intval($include_character_count);
+
+  // Sanitize publish status
+  $publish_status = sanitize_text_field($publish_status);
+
   // Headers for CSV
   $headers = array('Page Title', 'URL', 'Meta Title', 'Meta Description', 'Post Type', 'Publish Status');
 
   // Check if character count option is checked
-  $include_character_count = isset($_POST['eum_character_count']) && $_POST['eum_character_count'] == 1;
+  $include_character_count = intval($include_character_count);
 
   // Add headers for character count columns if option is checked
   if ($include_character_count) {
@@ -134,11 +161,11 @@ function eum_generate_csv()
     $headers[] = 'Meta Description Char. Count';
   }
 
-  // Get selected post types
-  $post_types = isset($_POST['eum_post_types']) ? $_POST['eum_post_types'] : array();
+  // // Get selected post types
+  // $post_types = isset($_POST['eum_post_types']) ? $_POST['eum_post_types'] : array();
 
-  // Get publish status
-  $publish_status = isset($_POST['eum_publish_status']) ? $_POST['eum_publish_status'] : 'publish';
+  // // Get publish status
+  // $publish_status = isset($_POST['eum_publish_status']) ? $_POST['eum_publish_status'] : 'publish';
 
   // Prepare data for CSV
   $data = array();
@@ -164,8 +191,23 @@ function eum_generate_csv()
         // $yoast_meta_title = $yoast_meta_title;
         $yoast_meta_title = wpseo_replace_vars(get_post_meta($post->ID, '_yoast_wpseo_title', true), $post);
       } else {
-        // If Yoast SEO meta title is not set, use post title with site title appended
-        $yoast_meta_title = $title . ' - ' . get_bloginfo('name');
+        // If Yoast SEO meta title is not set, generate it based on Yoast settings
+        if (empty($yoast_meta_title)) {
+          // Get the Yoast SEO title template for the post type (page, post, product)
+          if ($post->post_type === 'page') {
+            $title_template = get_option('wpseo_titles')['title-page'];
+          } elseif ($post->post_type === 'post') {
+            $title_template = get_option('wpseo_titles')['title-post'];
+          } elseif ($post->post_type === 'product') {
+            $title_template = get_option('wpseo_titles')['title-product'];
+          } else {
+            // Handle other post types if necessary
+            $title_template = ''; // Set default value
+          }
+
+          // Generate the Yoast SEO title using the template and post data
+          $yoast_meta_title = wpseo_replace_vars($title_template, $post);
+        }
       }
 
       $meta_description = get_post_meta($post->ID, '_yoast_wpseo_metadesc', true);
