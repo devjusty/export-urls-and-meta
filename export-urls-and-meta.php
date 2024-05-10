@@ -110,6 +110,13 @@ function eum_handle_export_csv()
     $include_character_count = isset($_POST['eum_character_count']) ? intval($_POST['eum_character_count']) : 0;
     $publish_status = isset($_POST['eum_publish_status']) ? sanitize_text_field($_POST['eum_publish_status']) : 'publish';
 
+    // Check if at least one post type is selected
+    if (empty($post_types)) {
+      // No post types selected, display an error message and halt further processing
+      wp_die('Please select at least one post type.');
+    }
+
+
     // Check nonce for security
     if (!isset($_POST['eum_export_nonce_field']) || !wp_verify_nonce($_POST['eum_export_nonce_field'], 'eum_export_nonce')) {
       // Nonce verification failed, display an error message and halt further processing

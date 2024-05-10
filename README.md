@@ -2,7 +2,15 @@
 
 ## Description
 
-The Export URLs and Meta plugin is a custom WordPress plugin designed to export a CSV file containing information about published pages. It includes the page title, URL, Yoast meta title, meta description, post type, and publish status.
+The Export URLs and Meta plugin is a WordPress plugin designed to export a CSV file containing information about published pages. It includes the page title, URL, Yoast meta title, meta description, post type, and publish status.
+
+## Features
+
+- Export URLs, titles, and meta descriptions of published pages
+- Select specific post types to include in the export (pages, posts, products)
+- Option to include product category pages (requires WooCommerce)
+- Add character count for titles and descriptions in the CSV
+- Choose the publish status of the exported posts (published, drafts, private, all)
 
 ## Installation
 
@@ -15,9 +23,11 @@ The Export URLs and Meta plugin is a custom WordPress plugin designed to export 
 
 ## Usage
 
-1. After activating the plugin, go to Settings > Export URLs and Meta in your WordPress admin dashboard.
-2. Select the desired post types and any additional options (e.g., include product category pages).
-3. Click on the "Export CSV" button to generate and download the CSV file.
+1. After activating the plugin, go to Settings > Export URLs and Meta in the WordPress admin panel.
+2. Select the desired post types to include in the export.
+3. Choose additional options such as including product categories and character count.
+4. Select the publish status of the exported posts.
+5. Click the "Export CSV" button to generate the CSV file.
 
 ## Options
 
@@ -37,3 +47,19 @@ This plugin is licensed under the [GNU GPLv2 or later](https://www.gnu.org/licen
 ## Support
 
 For support or feature requests, please contact [plugin author](mailto:devjusty@gmail.com).
+
+## Changelog
+
+### Version 0.0.3
+
+- Added error handling for form submissions without selected post types.
+- Improved handling of Yoast SEO meta titles for pages, posts, and products.
+
+### Version 0.0.2
+
+- Fixed bugs related to CSV generation.
+- Added support for WooCommerce product categories.
+
+### Version 0.0.1
+
+- Initial release.
