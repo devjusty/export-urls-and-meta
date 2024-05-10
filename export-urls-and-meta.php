@@ -242,6 +242,35 @@ eum_generate_csv($post_types, $include_product_categories, $include_character_co
     }
   }
 
+  // Include product category pages if checkbox is selected
+  if ($include_product_categories && in_array('product', $post_types)) {
+    $product_categories = get_terms(array(
+      'taxonomy' => 'product_cat',
+      'hide_empty' => false,
+    ));
+
+    foreach ($product_categories as $category) {
+      $title = $category->name;
+      $url = get_term_link($category->term_id);
+
+      // For product category pages, meta title and description could be empty
+      $yoast_meta_title = '';
+      $meta_description = '';
+
+      // Add product category data to CSV
+      $row = array(
+        $title,
+        $url,
+        $yoast_meta_title,
+        $meta_description,
+        'Product Category', // Post type
+        'Published', // Default publish status for category pages
+      );
+
+      $data[] = $row;
+    }
+  }
+
   // Open output buffer
   ob_start();
 
