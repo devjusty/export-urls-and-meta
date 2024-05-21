@@ -1,8 +1,8 @@
 <?php
 /*
 Plugin Name: Export URLs and Meta
-Description: Custom WordPress plugin to export a CSV file of all published pages with their titles, URLs, and meta descriptions.
-Version: 0.0.3
+Description: Plugin to export a CSV file of all published pages with their titles, URLs, and meta descriptions.
+Version: 0.0.5
 Author: Justin Thompson
 */
 
@@ -140,9 +140,25 @@ function eum_handle_export_csv()
   }
 }
 
+// Function to get Yoast SEO title template for a given post type or taxonomy term
+function eum_get_yoast_title_template($entity_type)
+{
+  switch ($entity_type) {
+    case 'page':
+      return get_option('wpseo_titles')['title-page'];
+    case 'post':
+      return get_option('wpseo_titles')['title-post'];
+    case 'product':
+      return get_option('wpseo_titles')['title-product'];
+    case 'product_cat':
+      return isset(get_option('wpseo_titles')['title-product_cat']) ? get_option('wpseo_titles')['title-product_cat'] : '';
+    default:
+      return '';
+  }
+}
+
 // Function to generate CSV
-function
-eum_generate_csv($post_types, $include_product_categories, $include_character_count, $publish_status)
+function eum_generate_csv($post_types, $include_product_categories, $include_character_count, $publish_status)
 {
   // Sanitize post types array
   $post_types = array_map('sanitize_text_field', $post_types);
@@ -168,12 +184,6 @@ eum_generate_csv($post_types, $include_product_categories, $include_character_co
     $headers[] = 'Meta Description Char. Count';
   }
 
-  // // Get selected post types
-  // $post_types = isset($_POST['eum_post_types']) ? $_POST['eum_post_types'] : array();
-
-  // // Get publish status
-  // $publish_status = isset($_POST['eum_publish_status']) ? $_POST['eum_publish_status'] : 'publish';
-
   // Prepare data for CSV
   $data = array();
 
@@ -187,7 +197,7 @@ eum_generate_csv($post_types, $include_product_categories, $include_character_co
     $posts = get_posts($args);
 
     foreach ($posts as $post) {
-      $title = get_the_title($post->ID);
+      $title = htmlspecialchars_decode(get_the_title($post->ID)); // Decode HTML entities in title
       $url = get_permalink($post->ID);
 
       // Get Yoast SEO meta title
@@ -195,26 +205,11 @@ eum_generate_csv($post_types, $include_product_categories, $include_character_co
 
       // If Yoast SEO meta title is explicitly set, use it
       if (!empty($yoast_meta_title)) {
-        // $yoast_meta_title = $yoast_meta_title;
-        $yoast_meta_title = wpseo_replace_vars(get_post_meta($post->ID, '_yoast_wpseo_title', true), $post);
+        $yoast_meta_title = wpseo_replace_vars(htmlspecialchars_decode($yoast_meta_title), $post); // Decode HTML entities
       } else {
         // If Yoast SEO meta title is not set, generate it based on Yoast settings
-        if (empty($yoast_meta_title)) {
-          // Get the Yoast SEO title template for the post type (page, post, product)
-          if ($post->post_type === 'page') {
-            $title_template = get_option('wpseo_titles')['title-page'];
-          } elseif ($post->post_type === 'post') {
-            $title_template = get_option('wpseo_titles')['title-post'];
-          } elseif ($post->post_type === 'product') {
-            $title_template = get_option('wpseo_titles')['title-product'];
-          } else {
-            // Handle other post types if necessary
-            $title_template = ''; // Set default value
-          }
-
-          // Generate the Yoast SEO title using the template and post data
-          $yoast_meta_title = wpseo_replace_vars($title_template, $post);
-        }
+        $title_template = eum_get_yoast_title_template($post->post_type);
+        $yoast_meta_title = wpseo_replace_vars(htmlspecialchars_decode($title_template), $post); // Decode HTML entities
       }
 
       $meta_description = get_post_meta($post->ID, '_yoast_wpseo_metadesc', true);
@@ -243,31 +238,58 @@ eum_generate_csv($post_types, $include_product_categories, $include_character_co
   }
 
   // Include product category pages if checkbox is selected
-  if ($include_product_categories && in_array('product', $post_types)) {
+  if (
+    $include_product_categories && in_array('product', $post_types)
+  ) {
+    // Get product categories
     $product_categories = get_terms(array(
-      'taxonomy' => 'product_cat',
+      'taxonomy'   => 'product_cat',
       'hide_empty' => false,
     ));
 
+    // Loop through each product category
     foreach ($product_categories as $category) {
-      $title = $category->name;
-      $url = get_term_link($category->term_id);
+      $category_title = $category->name;
+      $category_url = get_term_link($category); // Get category URL
 
-      // For product category pages, meta title and description could be empty
-      $yoast_meta_title = '';
-      $meta_description = '';
+      // Fetch the Yoast SEO meta title for the product category
+      $yoast_meta_title = get_term_meta($category->term_id, '_yoast_wpseo_title', true);
 
-      // Add product category data to CSV
-      $row = array(
-        $title,
-        $url,
-        $yoast_meta_title,
-        $meta_description,
+
+
+      // If Yoast SEO meta title is explicitly set, use it
+      if (!empty($yoast_meta_title)) {
+        $category_meta_title = wpseo_replace_vars($yoast_meta_title, (array) $category);
+      } else {
+        // If Yoast SEO meta title is not set, generate it based on Yoast settings
+        // $title_template = eum_get_yoast_title_template('product_cat');
+        // $category_meta_title = wpseo_replace_vars($title_template, (array) $category);
+
+        $category_meta_title = $yoast_meta_title;
+      }
+
+      // Get category description
+      $category_description = $category->description;
+
+      // Add category data to the CSV
+      $category_row = array(
+        $category_title,
+        $category_url,
+        $category_meta_title, // Meta title
+        $category_description,
         'Product Category', // Post type
-        'Published', // Default publish status for category pages
+        'Published', // Publish status (assumed to be published)
       );
 
-      $data[] = $row;
+      // Add character counts if option is checked
+      if ($include_character_count) {
+        // Add empty character count placeholders
+        $category_row[] = strlen($category_meta_title); // Meta title char. count
+        $category_row[] = strlen($category_description); // Meta description char. count
+      }
+
+      // Add category row to data array
+      $data[] = $category_row;
     }
   }
 
@@ -296,7 +318,6 @@ eum_generate_csv($post_types, $include_product_categories, $include_character_co
   ob_flush();
   exit();
 }
-
 
 
 ?>
