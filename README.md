@@ -2,7 +2,7 @@
 
 ## Description
 
-The Export URLs and Meta plugin is a WordPress plugin designed to export a CSV file containing information about published pages. It includes the page title, URL, Yoast meta title, meta description, post type, and publish status.
+The Export URLs and Meta plugin is a WordPress plugin designed to export a CSV file containing information about published pages. It includes the page title, URL, meta title, meta description, post type, and publish status.
 
 ## Features
 
@@ -54,3 +54,12 @@ For support or feature requests, please contact [plugin author](mailto:devjusty@
 ### Version 0.0.1
 
 - Initial release.
+
+### TO DO
+
+- Update export file name to include site name nad timestamp
+- Make sure Meta title is included for sites with no plugin active
+- Add meta title for no plugin (page - sitename)
+- Add compatibility with Custom Post Types
+- Add ability to export as JSON? XML?
+- Add ability to export multiple statuses at once (Public, Draft, Private, Password Protected)
