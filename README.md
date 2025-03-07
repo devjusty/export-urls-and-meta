@@ -62,10 +62,11 @@ For support or feature requests, please contact [plugin author](mailto:devjusty@
 - Test with All-In-One-SEO
 - Add compatibility with Custom Post Types
 - Add ability to export as JSON? XML?
-- Add ability to export multiple statuses at once (Public, Draft, Private, Password Protected)
-- Add Category Page export
-- Add Category to Post Listings
+- Add ability to export Password Protected and Scheduled posts/pages
+- Add Category to Product
 - Add Scheduled Posts
 - Add Category Selection
 - Check for Special Page Templates? (404, Search Results);
 - Add Checkbox for 'all' settings
+- Remember settings on admin page
+- Include Indexing column

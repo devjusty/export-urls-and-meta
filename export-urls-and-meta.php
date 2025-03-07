@@ -3,7 +3,7 @@
 Plugin Name: Export URLs and Meta
 Plugin URI: https://github.com/devjusty/export-urls-and-meta
 Description: Plugin to export SEO titles, URLs, and meta descriptions to a CSV.
-Version: 0.0.8
+Version: 0.0.9
 Author: Justin Thompson
 Requires PHP: 7.0
 Tested up to: 6.7
@@ -82,6 +82,8 @@ function eum_render_admin_page()
   // Check if an SEO plugin is active and if WooCommerce is active
   $active_seo_plugin = eum_detect_active_seo_plugin();
   $woocommerce_active = class_exists('WooCommerce');
+
+  $saved_settings = get_option('eum_export_settings', []);
 ?>
   <div class="wrap">
     <h1>Export URLs and Meta</h1>
@@ -198,6 +200,16 @@ function eum_handle_export_csv()
   $include_character_count = isset($_POST['eum_character_count'])
     ? intval($_POST['eum_character_count'])
     : 0;
+
+  // Save these choices to the database so they persist
+  $saved_settings = [
+    'post_types'                => $post_types,
+    'include_wp_categories'     => $include_wp_categories,
+    'include_product_categories' => $include_product_categories,
+    'publish_status'            => $publish_status,
+    'include_character_count'   => $include_character_count,
+  ];
+  update_option('eum_export_settings', $saved_settings);
 
   // If no post types selected, show error and stop.
   if (empty($post_types) && !$include_wp_categories && !$include_product_categories) {
