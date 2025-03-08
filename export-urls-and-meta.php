@@ -3,21 +3,19 @@
 Plugin Name: Export URLs and Meta
 Plugin URI: https://github.com/devjusty/export-urls-and-meta
 Description: Plugin to export SEO titles, URLs, and meta descriptions to a CSV.
-Version: 0.0.10
+Version: 0.0.11
 Author: Justin Thompson
 Requires PHP: 7.0
-Tested up to: 6.7
+Tested up to: 6.7.2
 License: GPL-2.0+
 License URI: http://www.gnu.org/licenses/gpl-2.0.txt
 Text Domain: export-urls-and-meta
 */
 
-
 /**
  * Register uninstall hook to delete stored settings
  */
 register_uninstall_hook(__FILE__, 'eum_on_uninstall');
-
 function eum_on_uninstall()
 {
   // Ensure the uninstall is legitimate
@@ -93,10 +91,8 @@ add_action('admin_menu', 'eum_add_admin_menu');
  */
 function eum_render_admin_page()
 {
-  // Check if an SEO plugin is active and if WooCommerce is active
   $active_seo_plugin = eum_detect_active_seo_plugin();
   $woocommerce_active = class_exists('WooCommerce');
-
   $saved_settings = get_option('eum_export_settings', []);
 
   // Check if homepage is “latest posts”
@@ -112,10 +108,11 @@ function eum_render_admin_page()
   <?php
   }
 
-
+  // Check for saved settings
   $has_page             = (!empty($saved_settings['post_types']) && in_array('page', $saved_settings['post_types'], true));
   $has_post             = (!empty($saved_settings['post_types']) && in_array('post', $saved_settings['post_types'], true));
   $has_product          = (!empty($saved_settings['post_types']) && in_array('product', $saved_settings['post_types'], true));
+
   $wants_homepage_latest = !empty($saved_settings['include_homepage_latest']);
   $wants_wp_categories  = !empty($saved_settings['include_wp_categories']);
   $wants_product_cats   = !empty($saved_settings['include_product_categories']);
@@ -176,11 +173,15 @@ function eum_render_admin_page()
       <?php if ($woocommerce_active) : ?>
         <h2>WooCommerce</h2>
         <label for="eum_post_type_product">
-          <input type="checkbox" id="eum_post_type_product" name="eum_post_types[]" value="product" <?php checked($has_product); ?>>
+          <input type="checkbox" id="eum_post_type_product"
+            name="eum_post_types[]" value="product"
+            <?php checked($has_product); ?>>
           Products
         </label>
         <label for="eum_include_product_categories">
-          <input type="checkbox" id="eum_include_product_categories" name="eum_include_product_categories" value="1" <?php checked($wants_product_cats); ?>>
+          <input type="checkbox" id="eum_include_product_categories"
+            name="eum_include_product_categories" value="1"
+            <?php checked($wants_product_cats); ?>>
           Include Product Category Pages
         </label>
       <?php endif; ?>
@@ -188,21 +189,29 @@ function eum_render_admin_page()
       <h2>Publish Status</h2>
       <p>Select the publish status of the posts you want to export.</p>
       <label for="eum_publish_status_publish">
-        <input type="checkbox" id="eum_publish_status_publish" name="eum_publish_status[]" value="publish" <?php checked($wants_publish); ?>>
+        <input type="checkbox" id="eum_publish_status_publish"
+          name="eum_publish_status[]" value="publish"
+          <?php checked($wants_publish); ?>>
         Published
       </label>
       <label for="eum_publish_status_draft">
-        <input type="checkbox" id="eum_publish_status_draft" name="eum_publish_status[]" value="draft" <?php checked($wants_draft); ?>>
+        <input type="checkbox" id="eum_publish_status_draft"
+          name="eum_publish_status[]" value="draft"
+          <?php checked($wants_draft); ?>>
         Drafts
       </label>
       <label for="eum_publish_status_private">
-        <input type="checkbox" id="eum_publish_status_private" name="eum_publish_status[]" value="private" <?php checked($wants_private); ?>>
+        <input type="checkbox" id="eum_publish_status_private"
+          name="eum_publish_status[]" value="private"
+          <?php checked($wants_private); ?>>
         Private
       </label>
 
       <h2>Additional Options</h2>
       <label for="eum_character_count">
-        <input type="checkbox" id="eum_character_count" name="eum_character_count" value="1" <?php checked($wants_chars); ?>>
+        <input type="checkbox" id="eum_character_count"
+          name="eum_character_count" value="1"
+          <?php checked($wants_chars); ?>>
         Add character count for titles and descriptions
       </label>
 
@@ -214,7 +223,6 @@ function eum_render_admin_page()
   </div>
 <?php
 }
-
 
 /**
  * Handles form submission to export CSV. Validates and sanitizes input.
@@ -238,7 +246,7 @@ function eum_handle_export_csv()
   if (!current_user_can('manage_options')) {
     wp_die('You do not have permission to perform this action.', 'Permission Error', array('response' => 403));
   }
-  // Get active SEO plugin information
+
   $active_seo_plugin = eum_detect_active_seo_plugin();
   if ($active_seo_plugin === false) {
     add_action('admin_notices', function () {
@@ -247,15 +255,13 @@ function eum_handle_export_csv()
     return;
   }
 
-  // Get sanitized inputs
+  // Get sanitized inputs from form data
   $post_types = isset($_POST['eum_post_types'])
     ? array_map('sanitize_text_field', wp_unslash($_POST['eum_post_types']))
     : array();
 
   $include_homepage_latest = isset($_POST['include_homepage_latest']) ? 1 : 0;
-
   $include_wp_categories = isset($_POST['eum_include_wp_categories']) ? 1 : 0;
-
   $include_product_categories = isset($_POST['eum_include_product_categories'])
     ? intval($_POST['eum_include_product_categories'])
     : 0;
@@ -264,9 +270,7 @@ function eum_handle_export_csv()
     ? array_map('sanitize_text_field', wp_unslash($_POST['eum_publish_status']))
     : array('publish');
 
-  $include_character_count = isset($_POST['eum_character_count'])
-    ? intval($_POST['eum_character_count'])
-    : 0;
+  $include_character_count = isset($_POST['eum_character_count']) ? 1 : 0;
 
   // Save these choices to the database so they persist
   $saved_settings = [
@@ -286,7 +290,6 @@ function eum_handle_export_csv()
     });
     return;
   }
-
   // If no statuses, default to 'publish'
   if (empty($publish_status)) {
     $publish_status = ['publish'];
@@ -314,7 +317,6 @@ function eum_handle_export_csv()
 // Handle form submission
 add_action('admin_init', 'eum_handle_export_csv');
 
-
 /**
  * Generates the CSV file and streams it to the browser using WP_Filesystem.
  */
@@ -327,6 +329,9 @@ function eum_generate_csv(
   $include_character_count,
   $publish_status
 ) {
+  // Log active plugin for clarity
+  error_log("eum_generate_csv() - Active SEO plugin: " . print_r($seo_plugin, true));
+
   // Prepare CSV headers
   $headers = [
     'Page Title',
@@ -346,12 +351,6 @@ function eum_generate_csv(
   // Prepare data for CSV
   $data = [];
 
-  // Identify if Yoast is available
-  $is_yoast = (
-    $seo_plugin['plugin_file'] === 'wordpress-seo/wp-seo.php'
-    && function_exists('wpseo_replace_vars')
-  );
-
   // Include regular posts/pages/products
   foreach ($post_types as $post_type) {
     $paged = 1;
@@ -363,62 +362,24 @@ function eum_generate_csv(
         'paged'          => $paged,
       ];
       $query = new WP_Query($args);
-      $posts = $query->posts;
 
       // Iterate over each post object
-      foreach ($posts as $post) {
-        $title = htmlspecialchars_decode(get_the_title($post->ID)); // Decode HTML entities in title
-        $url = get_permalink($post->ID);
+      foreach ($query->posts as $post) {
+        // Basic Info
+        $title   = htmlspecialchars_decode(get_the_title($post->ID));
+        $url     = get_permalink($post->ID);
+        $post_obj_label = get_post_type_object($post->post_type);
+        $type_label     = $post_obj_label && isset($post_obj_label->labels->singular_name)
+          ? $post_obj_label->labels->singular_name
+          : $post->post_type;
 
-        // Determine meta title / description
-        $meta_title       = '';
-        $meta_description = '';
+        // Retrieve meta from a dedicated function
+        $meta = eum_get_post_meta($post, $seo_plugin['plugin_file']);
+        $meta_title = $meta['title'];
+        $meta_desc  = $meta['desc'];
 
-        // Use fallback or plugin-specific logic
-        if ($seo_plugin['plugin_name'] === 'None') {
-          // For no SEO plugin:
-          // Title always "Page/Post Title - Site Name".
-          $meta_title = $title . ' - ' . get_bloginfo('name');
-
-          // If this is a post, and there's an actual excerpt, use that.
-          // Otherwise, leave the meta description blank.
-          if ($post->post_type === 'post') {
-            // Check for manual excerpt
-            $raw_excerpt = get_post_field('post_excerpt', $post->ID, 'raw');
-            // If there's a manual excerpt, sanitize it; otherwise blank
-            if (!empty($raw_excerpt)) {
-              $maybe_excerpt = wp_strip_all_tags($raw_excerpt);
-              $maybe_excerpt = preg_replace("/\r\n|\r|\n/", ' ', $maybe_excerpt);
-              $maybe_excerpt = html_entity_decode($maybe_excerpt, ENT_QUOTES, get_option('blog_charset'));
-              $meta_description = $maybe_excerpt;
-            }
-          }
-        } elseif ($is_yoast) {
-          // Yoast SEO logic
-          $yoast_meta_title = get_post_meta($post->ID, '_yoast_wpseo_title', true);
-
-          if (!empty($yoast_meta_title)) {
-            $meta_title = wpseo_replace_vars(htmlspecialchars_decode($yoast_meta_title), $post);
-          } else {
-            $title_template = eum_get_yoast_title_template($post->post_type);
-            $meta_title = wpseo_replace_vars(htmlspecialchars_decode($title_template), $post);
-          }
-          $meta_description = get_post_meta($post->ID, '_yoast_wpseo_metadesc', true);
-        } else {
-          // Other recognized plugin or fallback
-          // If you want custom logic for Rank Math or SEOPress, handle it here.
-          // For now, fallback:
-          $meta_info = eum_get_seo_meta($post->ID, $seo_plugin['plugin_file']);
-          $meta_title = $meta_info['meta_title'];
-          $meta_description = $meta_info['meta_desc'];
-        }
-
-        // Post type label
-        $post_type_obj = get_post_type_object($post->post_type);
-        $post_type_label = $post_type_obj ? $post_type_obj->labels->singular_name : $post->post_type;
-
-        // Category column: assigned categories for this post/product
-        $cat_string = ''; // default
+        // Category column
+        $cat_string = '';
         if ($post->post_type === 'post') {
           $post_cats = wp_get_post_terms($post->ID, 'category', ['fields' => 'names']);
           $cat_string = !empty($post_cats) ? implode(', ', $post_cats) : '';
@@ -427,184 +388,107 @@ function eum_generate_csv(
           $cat_string = !empty($product_cats) ? implode(', ', $product_cats) : '';
         }
 
-        // Status label
         $status_obj = get_post_status_object($post->post_status);
-        $publish_status_label = $status_obj ? $status_obj->label : $post->post_status;
+        $status_label = $status_obj && isset($status_obj->label) ? $status_obj->label : $post->post_status;
 
         $row = [
           $title,
           $url,
           $meta_title,
-          $meta_description,
-          $post_type_label,
+          $meta_desc,
+          $type_label,
           $cat_string,
-          $publish_status_label
+          $status_label,
         ];
-
         if ($include_character_count) {
           $row[] = strlen((string)$meta_title);
-          $row[] = strlen((string)$meta_description);
+          $row[] = strlen((string)$meta_desc);
         }
-
         $data[] = $row;
       }
       $paged++;
     } while ($paged <= $query->max_num_pages);
   }
 
-  // If user wants homepage included AND there's no static front page
+  // Homepage (latest posts)
   if ($include_homepage_latest && (int) get_option('page_on_front') === 0) {
-    $home_url = home_url('/');
-    $home_title = get_bloginfo('name');
-    $home_description = '';
-
-    $is_yoast = ($seo_plugin['plugin_file'] === 'wordpress-seo/wp-seo.php' && function_exists('wpseo_replace_vars'));
-    if ($is_yoast) {
-      $yoast_titles = get_option('wpseo_titles');
-      if (!empty($yoast_titles['title-home'])) {
-        $home_title = wpseo_replace_vars($yoast_titles['title-home'], get_post(0));
-      }
-      if (!empty($yoast_titles['metadesc-home'])) {
-        $home_description = wpseo_replace_vars($yoast_titles['metadesc-home'], get_post(0));
-      }
-    }
-
-    // Build the row
+    $homepage_meta = eum_get_homepage_meta($seo_plugin['plugin_file']);
     $row = [
-      'Homepage',       // "Page Title" column
-      $home_url,        // URL
-      $home_title,      // Meta Title
-      $home_description, // Meta Description
-      'Front Page',     // Post Type
-      '',               // Post Categories column (unused for the root URL)
-      'Published'       // Status
+      'Homepage',
+      home_url('/'),
+      $homepage_meta['title'],
+      $homepage_meta['desc'],
+      'Front Page',
+      '',
+      'Published'
     ];
     if ($include_character_count) {
-      $row[] = strlen((string)$home_title);
-      $row[] = strlen((string)$home_description);
+      $row[] = strlen((string)$homepage_meta['title']);
+      $row[] = strlen((string)$homepage_meta['desc']);
     }
     $data[] = $row;
   }
 
-  //    List Post Category Pages
+  // Post Category Pages
   if ($include_wp_categories) {
     $wp_categories = get_terms([
       'taxonomy'   => 'category',
       'hide_empty' => false,
     ]);
-    foreach ($wp_categories as $category) {
-      $cat_title = $category->name;
-      $cat_url   = get_term_link($category);
-
-      $cat_meta_title  = '';
-      $cat_description = $category->description; // or leave blank if you prefer
-
-      if ($seo_plugin['plugin_name'] === 'None') {
-        // No SEO plugin, fallback
-        $cat_meta_title = $cat_title . ' - ' . get_bloginfo('name');
-      } elseif ($is_yoast) {
-        $yoast_term_title = get_term_meta($category->term_id, '_yoast_wpseo_title', true);
-        if (!empty($yoast_term_title)) {
-          $cat_meta_title = wpseo_replace_vars($yoast_term_title, (array) $category);
-        } else {
-          // If we want to handle category template:
-          $template_cat = eum_get_yoast_title_template('category'); // you may need to add this key
-          $cat_meta_title = wpseo_replace_vars($template_cat, (array) $category);
-        }
-      } else {
-        // Other plugin fallback
-        $cat_meta_title = $cat_title . ' - ' . get_bloginfo('name');
-      }
-
-      // We don't have a "Post Type" here, so label it "Post Category"
-      // The category column doesn't apply for a category page itself
-      // We'll pass empty or something for that column if needed
-      $cat_row = [
-        $cat_title,
-        $cat_url,
-        $cat_meta_title,
-        $cat_description,
-        'Post Category',  // Post Type
-        '',               // assigned categories column (none, it's a term)
+    foreach ($wp_categories as $term) {
+      $term_meta = eum_get_term_meta($term, $seo_plugin['plugin_file'], 'category');
+      $row = [
+        $term->name,
+        get_term_link($term),
+        $term_meta['title'],
+        $term_meta['desc'],
+        'Post Category',
+        '',
         'Published'
       ];
-
       if ($include_character_count) {
-        $cat_row[] = strlen((string)$cat_meta_title);
-        $cat_row[] = strlen((string)$cat_description);
+        $row[] = strlen((string)$term_meta['title']);
+        $row[] = strlen((string)$term_meta['desc']);
       }
-      $data[] = $cat_row;
+      $data[] = $row;
     }
   }
 
-  // Include product categories if requested
+  // Product categories
   if ($include_product_categories && in_array('product', $post_types, true)) {
     $product_categories = get_terms([
       'taxonomy'   => 'product_cat',
       'hide_empty' => false,
     ]);
-    foreach ($product_categories as $category) {
-      $category_title = $category->name;
-      $category_url   = get_term_link($category);
-
-      $category_meta_title  = '';
-      $category_description = $category->description;
-
-      // Decide meta logic for product categories
-      if ($seo_plugin['plugin_name'] === 'None') {
-        // No recognized SEO plugin
-        $category_meta_title   = $category_title . ' - ' . get_bloginfo('name');
-        $category_description  = $category->description;
-      } elseif ($is_yoast) {
-        $yoast_meta_title = get_term_meta($category->term_id, '_yoast_wpseo_title', true);
-        if (!empty($yoast_meta_title)) {
-          $category_meta_title = wpseo_replace_vars($yoast_meta_title, (array)$category);
-        } else {
-          // Use the product_cat template if provided
-          $title_template = eum_get_yoast_title_template('product_cat');
-          $category_meta_title = wpseo_replace_vars($title_template, (array)$category);
-        }
-        $category_description = $category->description;
-      } else {
-        // Other plugin or fallback
-        $category_meta_title  = $category_title . ' - ' . get_bloginfo('name');
-      }
-
-      $category_row = [
-        $category_title,
-        $category_url,
-        $category_meta_title,
-        $category_description,
+    foreach ($product_categories as $term) {
+      $term_meta = eum_get_term_meta($term, $seo_plugin['plugin_file'], 'product_cat');
+      $row = [
+        $term->name,
+        get_term_link($term),
+        $term_meta['title'],
+        $term_meta['desc'],
         'Product Category',
-        $category_title,
+        $term->name, // or '', if you don't want it repeated
         'Published'
       ];
-
       if ($include_character_count) {
-        $category_row[] = strlen((string)$category_meta_title);
-        $category_row[] = strlen((string)$category_description);
+        $row[] = strlen((string)$term_meta['title']);
+        $row[] = strlen((string)$term_meta['desc']);
       }
-      $data[] = $category_row;
+      $data[] = $row;
     }
   }
 
-  // -----------------------------------------------------------------------
   //  Build CSV in memory and use WP_Filesystem
-  // -----------------------------------------------------------------------
-
-  // 1) Build CSV output in memory
   $csv_handle = fopen('php://temp', 'r+'); // no direct file system calls
   fputcsv($csv_handle, $headers);
-
   foreach ($data as $row) {
     fputcsv($csv_handle, $row);
   }
-
   rewind($csv_handle);
   $csv_output = stream_get_contents($csv_handle);
   fclose($csv_handle);
 
-  // 2) Use WP_Filesystem to create a temp file and write CSV output
   if (!function_exists('WP_Filesystem')) {
     require_once ABSPATH . 'wp-admin/includes/file.php';
   }
@@ -615,40 +499,28 @@ function eum_generate_csv(
   if (!$temp_file) {
     wp_die('Could not create temporary file for CSV export.');
   }
-
-  // Write CSV string to the file
   $wp_filesystem->put_contents($temp_file, $csv_output, FS_CHMOD_FILE);
-
-  // 3) Retrieve contents again
   $file_contents = $wp_filesystem->get_contents($temp_file);
   if ($file_contents === false) {
     wp_die('Unable to read CSV data from temporary file.');
   }
 
-
-  // 4) Stream CSV to the browser
   $filename = eum_generate_csv_filename();
-
-  // Send headers
   header('Content-Type: text/csv; charset=UTF-8');
   header('Content-Disposition: attachment; filename="' . $filename . '"');
   header('Pragma: no-cache');
   header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
   // Output UTF-8 BOM
-  // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
   echo "\xEF\xBB\xBF";
-
-  // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
   echo $file_contents;
 
-  // 5) Remove temp file with wp_delete_file()
   wp_delete_file($temp_file);
   exit();
 }
 
 /**
- * Generates CSV filename using gmdate() to avoid date/timezone issues.
+ * Generates CSV filename using gmdate()
  */
 function eum_generate_csv_filename()
 {
@@ -657,41 +529,202 @@ function eum_generate_csv_filename()
   return "{$site_name}-meta-export-{$timestamp}.csv";
 }
 
+/*---------------------------------------------------------------------------
+ |  HELPER FUNCTIONS (POSTS, TERMS, HOMEPAGE)
+ *--------------------------------------------------------------------------*/
 
 /**
- * Retrieves meta data from various SEO plugins
+ * Retrieves SEO meta for a POST object (posts/pages/products).
  */
-function eum_get_seo_meta($post_id, $plugin_file)
+function eum_get_post_meta($post, $plugin_file)
 {
-  $meta_title = '';
-  $meta_desc = '';
-  $site_name = get_bloginfo('name');
+  $post_id    = $post->ID;
   $post_title = get_the_title($post_id);
+  $site_name  = get_bloginfo('name');
 
-  if ($plugin_file === 'seo-by-rank-math/rank-math.php' && function_exists('RankMath')) {
-    // Rank Math logic
-    $meta_title = RankMath()->variables->get_variable('title', $post_id);
-    $meta_desc  = RankMath()->variables->get_variable('meta_description', $post_id);
+  // Default fallback
+  $meta_title = "{$post_title} - {$site_name}";
+  $meta_desc  = '';
+
+  if ($plugin_file === 'seo-by-rank-math/rank-math.php') {
+    $saved_title = get_post_meta($post_id, 'rank_math_title', true);
+
+    // Get description from Rank Math
+    $saved_desc = get_post_meta($post_id, 'rank_math_description', true);
+
+    if (!empty($saved_desc)) {
+      $meta_desc = $saved_desc;
+    } else {
+      // Fallback to excerpt if no Rank Math description is set
+      if ($post->post_type === 'post') {
+        $raw_excerpt = get_post_field('post_excerpt', $post_id, 'raw');
+        if (!empty($raw_excerpt)) {
+          $maybe_excerpt = wp_strip_all_tags($raw_excerpt);
+          $maybe_excerpt = preg_replace("/\r\n|\r|\n/", ' ', $maybe_excerpt);
+          $maybe_excerpt = html_entity_decode($maybe_excerpt, ENT_QUOTES, get_option('blog_charset'));
+          $meta_desc = $maybe_excerpt;
+        } else {
+          error_log("No Rank Math description or excerpt for post {$post_id}");
+        }
+      }
+    }
   } elseif ($plugin_file === 'wp-seopress/seopress.php') {
-    // SEOPress logic
-    $meta_title = get_post_meta($post_id, '_seopress_titles_title', true);
-    $meta_desc  = get_post_meta($post_id, '_seopress_titles_desc', true);
+    // SEOPress
+    $title = get_post_meta($post_id, '_seopress_titles_title', true);
+    $desc  = get_post_meta($post_id, '_seopress_titles_desc', true);
+
+    error_log("SEOPress debug (post {$post_id}): title={$title}, desc={$desc}");
+
+    if (!empty($title)) {
+      $meta_title = $title;
+    }
+    if (!empty($desc)) {
+      $meta_desc = $desc;
+    }
+  } elseif ($plugin_file === 'wordpress-seo/wp-seo.php' && function_exists('wpseo_replace_vars')) {
+    // Yoast
+    $yoast_meta_title = get_post_meta($post_id, '_yoast_wpseo_title', true);
+    error_log("Yoast debug (post {$post_id}): _yoast_wpseo_title=" . print_r($yoast_meta_title, true));
+
+    if (!empty($yoast_meta_title)) {
+      $meta_title = wpseo_replace_vars(htmlspecialchars_decode($yoast_meta_title), $post);
+    } else {
+      // fallback to template
+      $template_title = eum_get_yoast_title_template($post->post_type);
+      $meta_title     = wpseo_replace_vars(htmlspecialchars_decode($template_title), $post);
+    }
+    $yoast_desc = get_post_meta($post_id, '_yoast_wpseo_metadesc', true);
+    error_log("Yoast debug (post {$post_id}): _yoast_wpseo_metadesc=" . print_r($yoast_desc, true));
+
+    if (!empty($yoast_desc)) {
+      $meta_desc = $yoast_desc;
+    }
   } else {
-    // Fallback
-    $meta_title = $post_title . ' - ' . $site_name;
-    // Use excerpt if set; otherwise blank
-    $maybe_excerpt = get_post_field('post_excerpt', $post_id, 'raw');
-    if (!empty($maybe_excerpt)) {
-      $clean_excerpt = wp_strip_all_tags($maybe_excerpt);
-      $clean_excerpt = preg_replace("/\r\n|\r|\n/", ' ', $clean_excerpt);
-      $clean_excerpt = html_entity_decode($clean_excerpt, ENT_QUOTES, get_option('blog_charset'));
-      $meta_desc = $clean_excerpt;
+    // fallback logic if plugin_file is "None" or unknown
+
+    // If post is 'post' and has excerpt
+    if ($post->post_type === 'post') {
+      $raw_excerpt = get_post_field('post_excerpt', $post_id, 'raw');
+      if (!empty($raw_excerpt)) {
+        $maybe_excerpt = wp_strip_all_tags($raw_excerpt);
+        $maybe_excerpt = preg_replace("/\r\n|\r|\n/", ' ', $maybe_excerpt);
+        $maybe_excerpt = html_entity_decode($maybe_excerpt, ENT_QUOTES, get_option('blog_charset'));
+        $meta_desc     = $maybe_excerpt;
+      }
     }
   }
+  error_log("Final POST meta (post {$post_id}): meta_title={$meta_title}, meta_desc={$meta_desc}");
 
   return [
-    'meta_title' => htmlspecialchars_decode($meta_title),
-    'meta_desc'  => htmlspecialchars_decode($meta_desc),
+    'title' => htmlspecialchars_decode($meta_title),
+    'desc'  => htmlspecialchars_decode($meta_desc),
+  ];
+}
+
+/**
+ * Retrieves SEO meta for a TERM object (e.g. category, product_cat).
+ */
+function eum_get_term_meta($term, $plugin_file, $taxonomy_type = 'category')
+{
+  $term_title = $term->name;
+  $term_desc  = $term->description;
+  $site_name  = get_bloginfo('name');
+
+  // default fallback
+  $meta_title = "{$term_title} - {$site_name}";
+  $meta_desc  = $term_desc;
+
+  error_log("eum_get_term_meta(): term_id={$term->term_id}, plugin_file={$plugin_file}, taxonomy_type={$taxonomy_type}");
+
+  if ($plugin_file === 'seo-by-rank-math/rank-math.php') {
+    // Possible Rank Math keys for terms
+    $saved_title = get_term_meta($term->term_id, 'rank_math_title', true);
+    $saved_desc  = get_term_meta($term->term_id, 'rank_math_description', true);
+
+    error_log("Rank Math term debug (term {$term->term_id}):
+            rank_math_title = {$saved_title},
+            rank_math_description = {$saved_desc}");
+
+    if (!empty($saved_title)) {
+      $meta_title = $saved_title;
+    }
+    if (!empty($saved_desc)) {
+      $meta_desc = $saved_desc;
+    }
+  } elseif ($plugin_file === 'wp-seopress/seopress.php') {
+    // Potential future: SEOPress term meta keys
+    // $title = get_term_meta($term->term_id, '_seopress_titles_title_term', true);
+    // $desc  = get_term_meta($term->term_id, '_seopress_titles_desc_term', true);
+    // if (!empty($title)) { $meta_title = $title; }
+    // if (!empty($desc))  { $meta_desc  = $desc; }
+  } elseif ($plugin_file === 'wordpress-seo/wp-seo.php' && function_exists('wpseo_replace_vars')) {
+    $yoast_t = get_term_meta($term->term_id, '_yoast_wpseo_title', true);
+    $yoast_d = get_term_meta($term->term_id, '_yoast_wpseo_metadesc', true);
+
+    error_log("Yoast term debug (term {$term->term_id}):
+            _yoast_wpseo_title={$yoast_t},
+            _yoast_wpseo_metadesc={$yoast_d}");
+
+    if (!empty($yoast_t)) {
+      $meta_title = wpseo_replace_vars($yoast_t, (array)$term);
+    } else {
+      // Possibly handle category template if you like:
+      // $template_cat = eum_get_yoast_title_template('category');
+      // $meta_title   = wpseo_replace_vars($template_cat, (array)$term);
+    }
+    if (!empty($yoast_d)) {
+      $meta_desc  = wpseo_replace_vars($yoast_d, (array)$term);
+    }
+  }
+  // else fallback to $meta_title as default
+  error_log("Final TERM meta (term {$term->term_id}): meta_title={$meta_title}, meta_desc={$meta_desc}");
+  return [
+    'title' => htmlspecialchars_decode($meta_title),
+    'desc'  => htmlspecialchars_decode($meta_desc),
+  ];
+}
+
+/**
+ * Retrieves meta for the homepage if “latest posts” is used.
+ */
+function eum_get_homepage_meta($plugin_file)
+{
+  $site_name = get_bloginfo('name');
+  $meta_title = $site_name;
+  $meta_desc = '';
+
+  error_log("eum_get_homepage_meta(): plugin_file={$plugin_file}");
+
+  if ($plugin_file === 'wordpress-seo/wp-seo.php' && function_exists('wpseo_replace_vars')) {
+    $yoast_titles = get_option('wpseo_titles');
+    if (!empty($yoast_titles['title-home'])) {
+      $meta_title = wpseo_replace_vars($yoast_titles['title-home'], get_post(0));
+    }
+    if (!empty($yoast_titles['metadesc-home'])) {
+      $meta_desc  = wpseo_replace_vars($yoast_titles['metadesc-home'], get_post(0));
+    }
+    error_log("Yoast homepage debug: meta_title={$meta_title}, meta_desc={$meta_desc}");
+  } elseif ($plugin_file === 'seo-by-rank-math/rank-math.php') {
+    // Some Rank Math settings for homepage could exist in rank_math_titles_homepage_title or rank_math_titles_homepage_description
+    $home_title = get_option('rank_math_titles_homepage_title');
+    $home_desc  = get_option('rank_math_titles_homepage_description');
+
+    error_log("Rank Math homepage debug:
+            rank_math_titles_homepage_title={$home_title},
+            rank_math_titles_homepage_description={$home_desc}");
+
+    if (!empty($home_title)) {
+      $meta_title = $home_title;
+    }
+    if (!empty($home_desc)) {
+      $meta_desc  = $home_desc;
+    }
+  }
+  // else fallback to site name
+  error_log("Final HOMEPAGE meta: meta_title={$meta_title}, meta_desc={$meta_desc}");
+  return [
+    'title' => htmlspecialchars_decode($meta_title),
+    'desc'  => htmlspecialchars_decode($meta_desc),
   ];
 }
 
@@ -704,7 +737,6 @@ function eum_get_yoast_title_template($entity_type)
 
   if (!isset($yoast_titles)) {
     $yoast_titles = get_option('wpseo_titles');
-    // Ensure it's an array to avoid PHP notices
     if (!is_array($yoast_titles)) {
       $yoast_titles = [];
     }
@@ -719,6 +751,8 @@ function eum_get_yoast_title_template($entity_type)
       return !empty($yoast_titles['title-product']) ? $yoast_titles['title-product'] : '';
     case 'product_cat':
       return !empty($yoast_titles['title-product_cat']) ? $yoast_titles['title-product_cat'] : '';
+    case 'category':
+      return !empty($yoast_titles['title-category']) ? $yoast_titles['title-category'] : '';
     default:
       return '';
   }
@@ -746,5 +780,7 @@ function eum_display_notice($message, $type = 'info')
     <p><?php echo esc_html($message); ?></p>
   </div>
 <?php
+
+
+
 }
-?>
