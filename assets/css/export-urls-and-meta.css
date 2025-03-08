@@ -1,0 +1,65 @@
+.eum-export-page {
+  margin-top: 20px;
+}
+
+.eum-export-form {
+  margin-top: 20px;
+}
+
+.eum-form-actions {
+  margin-top: 20px;
+}
+
+.eum-export-form h2 {
+  margin-top: 30px;
+  border-bottom: 1px solid #e5e5e5;
+  padding-bottom: 5px;
+}
+
+.eum-export-form label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 400;
+}
+
+.eum-export-form input[type="checkbox"] {
+  margin-right: 5px;
+  accent-color: red;
+}
+
+#eum-loader-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+}
+
+#eum-loader-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 20px;
+  border-radius: 5px;
+  text-align: center;
+  min-width: 200px;
+}
+
+#eum-loader-close {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#eum-loader-text {
+  margin-top: 20px;
+}

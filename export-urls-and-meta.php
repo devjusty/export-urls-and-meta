@@ -3,7 +3,7 @@
 Plugin Name: Export URLs and Meta
 Plugin URI: https://github.com/devjusty/export-urls-and-meta
 Description: Plugin to export SEO titles, URLs, and meta descriptions to a CSV.
-Version: 0.0.11
+Version: 0.0.12
 Author: Justin Thompson
 Requires PHP: 7.0
 Tested up to: 6.7.2
@@ -18,11 +18,9 @@ Text Domain: export-urls-and-meta
 register_uninstall_hook(__FILE__, 'eum_on_uninstall');
 function eum_on_uninstall()
 {
-  // Ensure the uninstall is legitimate
   if (!defined('WP_UNINSTALL_PLUGIN')) {
     exit;
   }
-  // Delete the stored settings
   delete_option('eum_export_settings');
 }
 
@@ -31,17 +29,44 @@ if (!defined('ABSPATH')) {
   exit;
 }
 
+/**
+ * Adds an admin submenu under Tools
+ */
+function eum_add_admin_menu()
+{
+  add_submenu_page(
+    'tools.php',               // Parent menu slug (Tools)
+    'Export URLs and Meta',    // Page title
+    'Export URLs and Meta',    // Menu title
+    'manage_options',          // Capability required to access
+    'export-urls-and-meta',    // Menu slug
+    'eum_render_admin_page'    // Callback function to render the page
+  );
+}
+add_action('admin_menu', 'eum_add_admin_menu');
+
 // Add Plugin Settings Link to Plugins Page
 function eum_add_settings_link($links)
 {
-  $settings_link = '<a href="tools.php?page=export-urls-and-meta">Export URLs</a>';
+  $settings_link = '<a href="tools.php?page=export-urls-and-meta">Export</a>';
   array_unshift($links, $settings_link);
   return $links;
 }
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'eum_add_settings_link');
 
+function eum_enqueue_admin_assets($hook)
+{
+  // Only load on our export page (tools_page_export-urls-and-meta)
+  if ($hook !== 'tools_page_export-urls-and-meta') {
+    return;
+  }
+  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.12');
+  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.12', true);
+}
+add_action('admin_enqueue_scripts', 'eum_enqueue_admin_assets');
+
 /**
- * Detect which SEO plugin (if any) is active, ensuring only one is active
+ * Detect Active Seo Plugin(s)
  */
 function eum_detect_active_seo_plugin()
 {
@@ -78,25 +103,9 @@ function eum_detect_active_seo_plugin()
   ];
 }
 
-/**
- * Adds an admin submenu under Tools
- */
-function eum_add_admin_menu()
-{
-  add_submenu_page(
-    'tools.php',               // Parent menu slug (Tools)
-    'Export URLs and Meta',    // Page title
-    'Export URLs and Meta',    // Menu title
-    'manage_options',          // Capability required to access
-    'export-urls-and-meta',    // Menu slug
-    'eum_render_admin_page'    // Callback function to render the page
-  );
-}
-add_action('admin_menu', 'eum_add_admin_menu');
-
 
 /**
- * Renders the admin page with a form for selecting post types/status, etc.
+ * Renders the admin page with export options.
  */
 function eum_render_admin_page()
 {
@@ -107,8 +116,6 @@ function eum_render_admin_page()
   // Check if homepage is “latest posts”
   $front_page_id = (int) get_option('page_on_front');
   $is_latest_posts = ($front_page_id === 0);
-
-  // Show a notice if homepage is using "latest posts"
   if ($is_latest_posts) {
 ?>
     <div class="notice notice-info">
@@ -133,7 +140,7 @@ function eum_render_admin_page()
 
   $wants_chars   = !empty($saved_settings['include_character_count']);
   ?>
-  <div class="wrap">
+  <div class="wrap eum-export-page">
     <h1>Export URLs and Meta</h1>
     <?php if ($active_seo_plugin === false) : ?>
       <div class="notice notice-error is-dismissible">
@@ -143,7 +150,7 @@ function eum_render_admin_page()
       <p>Detected SEO Plugin: <strong><?php echo esc_html($active_seo_plugin['plugin_name']); ?></strong></p>
     <?php endif; ?>
 
-    <form method="post" action="">
+    <form method="post" action="" class="eum-export-form">
       <input type="hidden" name="eum_export_csv" value="1">
       <?php wp_nonce_field('eum_export_nonce', 'eum_export_nonce_field'); ?>
 
@@ -224,7 +231,7 @@ function eum_render_admin_page()
         Add character count for titles and descriptions
       </label>
 
-      <div style="margin-top: 20px;">
+      <div class="eum-form-actions">
         <button type="submit" name="eum_export_csv" class="button button-primary">Export CSV</button>
       </div>
 
@@ -532,7 +539,7 @@ function eum_generate_csv(
 function eum_generate_csv_filename()
 {
   $site_name = sanitize_title(get_bloginfo('name'));
-  $timestamp = gmdate('dmY_Hi');  // Format: DDMMYY_HHMM (24-hour format)
+  $timestamp = date_i18n('dmY_Hi');
   return "{$site_name}-meta-export-{$timestamp}.csv";
 }
 
@@ -578,8 +585,6 @@ function eum_get_post_meta($post, $plugin_file)
     $title = get_post_meta($post_id, '_seopress_titles_title', true);
     $desc  = get_post_meta($post_id, '_seopress_titles_desc', true);
 
-    error_log("SEOPress debug (post {$post_id}): title={$title}, desc={$desc}");
-
     if (!empty($title)) {
       $meta_title = $title;
     }
@@ -616,7 +621,6 @@ function eum_get_post_meta($post, $plugin_file)
       }
     }
   }
-  error_log("Final POST meta (post {$post_id}): meta_title={$meta_title}, meta_desc={$meta_desc}");
 
   return [
     'title' => htmlspecialchars_decode($meta_title),
@@ -637,16 +641,10 @@ function eum_get_term_meta($term, $plugin_file, $taxonomy_type = 'category')
   $meta_title = "{$term_title} - {$site_name}";
   $meta_desc  = $term_desc;
 
-  error_log("eum_get_term_meta(): term_id={$term->term_id}, plugin_file={$plugin_file}, taxonomy_type={$taxonomy_type}");
-
   if ($plugin_file === 'seo-by-rank-math/rank-math.php') {
     // Possible Rank Math keys for terms
     $saved_title = get_term_meta($term->term_id, 'rank_math_title', true);
     $saved_desc  = get_term_meta($term->term_id, 'rank_math_description', true);
-
-    error_log("Rank Math term debug (term {$term->term_id}):
-            rank_math_title = {$saved_title},
-            rank_math_description = {$saved_desc}");
 
     if (!empty($saved_title)) {
       $meta_title = $saved_title;
@@ -656,31 +654,30 @@ function eum_get_term_meta($term, $plugin_file, $taxonomy_type = 'category')
     }
   } elseif ($plugin_file === 'wp-seopress/seopress.php') {
     // Potential future: SEOPress term meta keys
-    // $title = get_term_meta($term->term_id, '_seopress_titles_title_term', true);
-    // $desc  = get_term_meta($term->term_id, '_seopress_titles_desc_term', true);
-    // if (!empty($title)) { $meta_title = $title; }
-    // if (!empty($desc))  { $meta_desc  = $desc; }
+    $title = get_term_meta($term->term_id, '_seopress_titles_title_term', true);
+    $desc  = get_term_meta($term->term_id, '_seopress_titles_desc_term', true);
+    if (!empty($title)) {
+      $meta_title = $title;
+    }
+    if (!empty($desc)) {
+      $meta_desc  = $desc;
+    }
   } elseif ($plugin_file === 'wordpress-seo/wp-seo.php' && function_exists('wpseo_replace_vars')) {
     $yoast_t = get_term_meta($term->term_id, '_yoast_wpseo_title', true);
     $yoast_d = get_term_meta($term->term_id, '_yoast_wpseo_metadesc', true);
-
-    error_log("Yoast term debug (term {$term->term_id}):
-            _yoast_wpseo_title={$yoast_t},
-            _yoast_wpseo_metadesc={$yoast_d}");
 
     if (!empty($yoast_t)) {
       $meta_title = wpseo_replace_vars($yoast_t, (array)$term);
     } else {
       // Possibly handle category template if you like:
-      // $template_cat = eum_get_yoast_title_template('category');
-      // $meta_title   = wpseo_replace_vars($template_cat, (array)$term);
+      $template_cat = eum_get_yoast_title_template('category');
+      $meta_title   = wpseo_replace_vars($template_cat, (array)$term);
     }
     if (!empty($yoast_d)) {
       $meta_desc  = wpseo_replace_vars($yoast_d, (array)$term);
     }
   }
   // else fallback to $meta_title as default
-  error_log("Final TERM meta (term {$term->term_id}): meta_title={$meta_title}, meta_desc={$meta_desc}");
   return [
     'title' => htmlspecialchars_decode($meta_title),
     'desc'  => htmlspecialchars_decode($meta_desc),
@@ -696,8 +693,6 @@ function eum_get_homepage_meta($plugin_file)
   $meta_title = $site_name;
   $meta_desc = '';
 
-  error_log("eum_get_homepage_meta(): plugin_file={$plugin_file}");
-
   if ($plugin_file === 'wordpress-seo/wp-seo.php' && function_exists('wpseo_replace_vars')) {
     $yoast_titles = get_option('wpseo_titles');
     if (!empty($yoast_titles['title-home'])) {
@@ -706,15 +701,10 @@ function eum_get_homepage_meta($plugin_file)
     if (!empty($yoast_titles['metadesc-home'])) {
       $meta_desc  = wpseo_replace_vars($yoast_titles['metadesc-home'], get_post(0));
     }
-    error_log("Yoast homepage debug: meta_title={$meta_title}, meta_desc={$meta_desc}");
   } elseif ($plugin_file === 'seo-by-rank-math/rank-math.php') {
     // Some Rank Math settings for homepage could exist in rank_math_titles_homepage_title or rank_math_titles_homepage_description
     $home_title = get_option('rank_math_titles_homepage_title');
     $home_desc  = get_option('rank_math_titles_homepage_description');
-
-    error_log("Rank Math homepage debug:
-            rank_math_titles_homepage_title={$home_title},
-            rank_math_titles_homepage_description={$home_desc}");
 
     if (!empty($home_title)) {
       $meta_title = $home_title;
@@ -724,7 +714,6 @@ function eum_get_homepage_meta($plugin_file)
     }
   }
   // else fallback to site name
-  error_log("Final HOMEPAGE meta: meta_title={$meta_title}, meta_desc={$meta_desc}");
   return [
     'title' => htmlspecialchars_decode($meta_title),
     'desc'  => htmlspecialchars_decode($meta_desc),
@@ -783,7 +772,5 @@ function eum_display_notice($message, $type = 'info')
     <p><?php echo esc_html($message); ?></p>
   </div>
 <?php
-
-
 
 }
