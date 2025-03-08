@@ -31,6 +31,15 @@ if (!defined('ABSPATH')) {
   exit;
 }
 
+// Add Plugin Settings Link to Plugins Page
+function eum_add_settings_link($links)
+{
+  $settings_link = '<a href="tools.php?page=export-urls-and-meta">Export URLs</a>';
+  array_unshift($links, $settings_link);
+  return $links;
+}
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'eum_add_settings_link');
+
 /**
  * Detect which SEO plugin (if any) is active, ensuring only one is active
  */
@@ -329,8 +338,6 @@ function eum_generate_csv(
   $include_character_count,
   $publish_status
 ) {
-  // Log active plugin for clarity
-  error_log("eum_generate_csv() - Active SEO plugin: " . print_r($seo_plugin, true));
 
   // Prepare CSV headers
   $headers = [
@@ -563,8 +570,6 @@ function eum_get_post_meta($post, $plugin_file)
           $maybe_excerpt = preg_replace("/\r\n|\r|\n/", ' ', $maybe_excerpt);
           $maybe_excerpt = html_entity_decode($maybe_excerpt, ENT_QUOTES, get_option('blog_charset'));
           $meta_desc = $maybe_excerpt;
-        } else {
-          error_log("No Rank Math description or excerpt for post {$post_id}");
         }
       }
     }
@@ -584,7 +589,6 @@ function eum_get_post_meta($post, $plugin_file)
   } elseif ($plugin_file === 'wordpress-seo/wp-seo.php' && function_exists('wpseo_replace_vars')) {
     // Yoast
     $yoast_meta_title = get_post_meta($post_id, '_yoast_wpseo_title', true);
-    error_log("Yoast debug (post {$post_id}): _yoast_wpseo_title=" . print_r($yoast_meta_title, true));
 
     if (!empty($yoast_meta_title)) {
       $meta_title = wpseo_replace_vars(htmlspecialchars_decode($yoast_meta_title), $post);
@@ -594,7 +598,6 @@ function eum_get_post_meta($post, $plugin_file)
       $meta_title     = wpseo_replace_vars(htmlspecialchars_decode($template_title), $post);
     }
     $yoast_desc = get_post_meta($post_id, '_yoast_wpseo_metadesc', true);
-    error_log("Yoast debug (post {$post_id}): _yoast_wpseo_metadesc=" . print_r($yoast_desc, true));
 
     if (!empty($yoast_desc)) {
       $meta_desc = $yoast_desc;
