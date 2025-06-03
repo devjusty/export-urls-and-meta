@@ -51,30 +51,6 @@ This plugin is licensed under the [GNU GPLv2 or later](https://www.gnu.org/licen
 
 For bug reports or feature requests, please [open an issue on GitHub](https://github.com/devjusty/export-urls-and-meta/issues) or email [devjusty@gmail.com](mailto:devjusty@gmail.com).
 
-## Changelog
-
-### Version 0.0.10
-
-- Added support for Rank Math SEO
-- Option to include homepage if “Your latest posts” is used
-- Support for post category pages in addition to product categories
-- Stores user export settings and cleans up on uninstall
-- Various minor fixes and performance improvements
-
-### Version 0.0.3
-
-- Added error handling for forms with no selected post types
-- Improved Yoast SEO meta title handling for pages, posts, and products
-
-### Version 0.0.2
-
-- Fixed CSV generation bugs
-- Added support for WooCommerce product categories
-
-### Version 0.0.1
-
-- Initial release
-
 ## TO DO
 
 - Confirm full compatibility with All-In-One SEO, SEOPress, and The SEO Framework.

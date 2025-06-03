@@ -1,0 +1,23 @@
+= 1.0.0 - 2025-06-02 =
+
+* Complete refactoring to a class-based architecture
+* Added support for multiple SEO plugins (Yoast SEO, Rank Math, SEOPress, All in One SEO Pack, The SEO Framework)
+* Implemented admin interface for selecting content to export
+* Added CSV export functionality with proper UTF-8 encoding
+* Added input validation and security measures
+* Added internationalization support
+* Improved error handling and user feedback
+* Updated to follow WordPress coding standards
+* Fixed various bugs and security issues
+* Improved code organization and maintainability
+
+= 0.0.13 =
+* Updates to Rank Math data retrieval
+
+= 0.0.10 =
+* Added Rank Math support
+* Added an option to include the homepage if no static front page is set
+* Added product category exports
+* Improved WP_Filesystem usage
+* Clean up settings with uninstall hook
+

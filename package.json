@@ -1,0 +1,29 @@
+{
+  "name": "export-urls-and-meta",
+  "version": "1.0.0",
+  "description": "Export pages, posts, and custom posts from WordPress along with their meta titles and descriptions.",
+  "homepage": "https://github.com/devjusty/export-urls-and-meta#readme",
+  "bugs": {
+    "url": "https://github.com/devjusty/export-urls-and-meta/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devjusty/export-urls-and-meta.git"
+  },
+  "license": "ISC",
+  "author": "Justin Thompson",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "prettier": "prettier",
+    "release": "sh release.sh"
+  },
+  "devDependencies": {
+    "@prettier/plugin-php": "^0.22.4",
+    "@wordpress/eslint-plugin": "^22.10.0",
+    "eslint": "^8.57.1",
+    "globals": "^16.2.0",
+    "prettier": "^3.5.3"
+  }
+}

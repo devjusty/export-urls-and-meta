@@ -1,10 +1,10 @@
 === Export URLs and Meta ===
-Contributors: Justin Thompson
-Tags: seo, meta, export
+Contributors: justho
+Tags: seo, meta, export, developer
 Requires at least: 5.8
 Tested up to: 6.7.2
 Requires PHP: 7.0
-Stable tag: 0.0.12
+Stable tag: 0.0.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -41,13 +41,3 @@ Yes. Simply check “Products” and optionally “Include Product Category Page
 
 = How do I remove all plugin data upon deletion? =
 We use `register_uninstall_hook` to delete saved settings from the database when the plugin is deleted via the WordPress admin.
-
-== Changelog ==
-
-= 0.0.10 =
-* Added Rank Math support
-* Added an option to include the homepage if no static front page is set
-* Added product category exports
-* Improved WP_Filesystem usage
-* Clean up settings with uninstall hook
-
