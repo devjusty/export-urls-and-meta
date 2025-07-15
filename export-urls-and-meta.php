@@ -60,8 +60,14 @@ function eum_enqueue_admin_assets($hook)
   if ($hook !== 'tools_page_export-urls-and-meta') {
     return;
   }
-  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.12');
-  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.12', true);
+  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.13');
+  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.13', true);
+
+  // Localize script for AJAX
+  wp_localize_script('eum-admin-js', 'eum_ajax', [
+    'ajax_url' => admin_url('admin-ajax.php'),
+    'nonce'    => wp_create_nonce('eum_export_nonce'),
+  ]);
 }
 add_action('admin_enqueue_scripts', 'eum_enqueue_admin_assets');
 
@@ -150,7 +156,7 @@ function eum_render_admin_page()
       <p>Detected SEO Plugin: <strong><?php echo esc_html($active_seo_plugin['plugin_name']); ?></strong></p>
     <?php endif; ?>
 
-    <form method="post" action="" class="eum-export-form">
+    <form id="eum-export-form" method="post" action="" class="eum-export-form">
       <input type="hidden" name="eum_export_csv" value="1">
       <?php wp_nonce_field('eum_export_nonce', 'eum_export_nonce_field'); ?>
 
@@ -233,304 +239,360 @@ function eum_render_admin_page()
 
       <div class="eum-form-actions">
         <button type="submit" name="eum_export_csv" class="button button-primary">Export CSV</button>
+        <button type="button" id="eum-preview-button" class="button">Preview</button>
       </div>
 
     </form>
+    <div id="eum-preview-container" class="eum-preview-container" style="display:none;">
+      <h3>Preview</h3>
+      <div id="eum-preview-content"></div>
+    </div>
   </div>
 <?php
 }
 
+/*---------------------------------------------------------------------------
+ |  AJAX HANDLERS
+ *--------------------------------------------------------------------------*/
+
+add_action('wp_ajax_eum_start_export', 'eum_ajax_start_export');
+add_action('wp_ajax_eum_process_batch', 'eum_ajax_process_batch');
+add_action('wp_ajax_eum_download_file', 'eum_ajax_download_file');
+add_action('wp_ajax_eum_cancel_export', 'eum_ajax_cancel_export');
+add_action('wp_ajax_eum_ajax_preview_export', 'eum_ajax_preview_export');
+
 /**
- * Handles form submission to export CSV. Validates and sanitizes input.
+ * AJAX handler to start the export process.
  */
-function eum_handle_export_csv()
+function eum_ajax_start_export()
 {
-  // Check if form was submitted
-  if (!isset($_POST['eum_export_csv'])) {
-    return; // Exit early if not our form submission
+  check_ajax_referer('eum_export_nonce', 'nonce');
+
+  parse_str($_POST['form_data'], $form_data);
+
+  // Sanitize and validate form data
+  $post_types = isset($form_data['post_types']) ? array_map('sanitize_text_field', $form_data['post_types']) : [];
+  $include_homepage = isset($form_data['include_homepage_latest']) && $form_data['include_homepage_latest'] === 'on';
+  $include_categories = isset($form_data['include_wp_categories']) && $form_data['include_wp_categories'] === 'on';
+  $include_product_cats = isset($form_data['include_product_categories']) && $form_data['include_product_categories'] === 'on';
+  $publish_status = isset($form_data['eum_publish_status']) && is_array($form_data['eum_publish_status']) ? array_map('sanitize_text_field', $form_data['eum_publish_status']) : ['publish'];
+
+  $items_to_process = [];
+
+  // Get posts
+  if (!empty($post_types)) {
+    $post_ids = get_posts([
+      'post_type' => $post_types,
+      'post_status' => $publish_status,
+      'numberposts' => -1,
+      'fields' => 'ids',
+    ]);
+    foreach ($post_ids as $id) {
+      $items_to_process[] = ['type' => 'post', 'id' => $id];
+    }
   }
 
-  // Nonce Checks
-  $nonce_field = isset($_POST['eum_export_nonce_field'])
-    ? sanitize_text_field(wp_unslash($_POST['eum_export_nonce_field']))
-    : '';
-  if (!wp_verify_nonce($nonce_field, 'eum_export_nonce')) {
-    wp_die('Security check failed. Please try again.', 'Security Error', array('response' => 403));
+  // Get categories
+  if ($include_categories) {
+    $term_ids = get_terms(['taxonomy' => 'category', 'fields' => 'ids', 'hide_empty' => false]);
+    foreach ($term_ids as $id) {
+      $items_to_process[] = ['type' => 'term', 'id' => $id, 'taxonomy' => 'category'];
+    }
   }
 
-  // Check user capability
-  if (!current_user_can('manage_options')) {
-    wp_die('You do not have permission to perform this action.', 'Permission Error', array('response' => 403));
+  // Get product categories
+  if ($include_product_cats && class_exists('WooCommerce')) {
+    $term_ids = get_terms(['taxonomy' => 'product_cat', 'fields' => 'ids', 'hide_empty' => false]);
+    foreach ($term_ids as $id) {
+      $items_to_process[] = ['type' => 'term', 'id' => $id, 'taxonomy' => 'product_cat'];
+    }
   }
 
-  $active_seo_plugin = eum_detect_active_seo_plugin();
-  if ($active_seo_plugin === false) {
-    add_action('admin_notices', function () {
-      eum_display_error_message('Multiple SEO plugins are active. Please deactivate all but one SEO plugin to ensure compatibility.');
-    });
-    return;
+  // Get homepage
+  if ($include_homepage && get_option('show_on_front') === 'posts') {
+    $items_to_process[] = ['type' => 'homepage', 'id' => 0];
   }
 
-  // Get sanitized inputs from form data
-  $post_types = isset($_POST['eum_post_types'])
-    ? array_map('sanitize_text_field', wp_unslash($_POST['eum_post_types']))
-    : array();
+  if (empty($items_to_process)) {
+    wp_send_json_error(['message' => 'No items found for the selected criteria.']);
+  }
 
-  $include_homepage_latest = isset($_POST['include_homepage_latest']) ? 1 : 0;
-  $include_wp_categories = isset($_POST['eum_include_wp_categories']) ? 1 : 0;
-  $include_product_categories = isset($_POST['eum_include_product_categories'])
-    ? intval($_POST['eum_include_product_categories'])
-    : 0;
-
-  $publish_status = isset($_POST['eum_publish_status'])
-    ? array_map('sanitize_text_field', wp_unslash($_POST['eum_publish_status']))
-    : array('publish');
-
-  $include_character_count = isset($_POST['eum_character_count']) ? 1 : 0;
-
-  // Save these choices to the database so they persist
-  $saved_settings = [
-    'post_types'                 => $post_types,
-    'include_homepage_latest'    => $include_homepage_latest,
-    'include_wp_categories'      => $include_wp_categories,
-    'include_product_categories' => $include_product_categories,
-    'publish_status'             => $publish_status,
-    'include_character_count'    => $include_character_count,
+  $export_id = 'eum_export_' . md5(uniqid(rand(), true));
+  $export_data = [
+    'items' => $items_to_process,
+    'total' => count($items_to_process),
+    'processed' => 0,
+    'form_data' => $form_data,
   ];
-  update_option('eum_export_settings', $saved_settings);
 
-  // If no post types selected, show error and stop.
-  if (empty($post_types) && !$include_wp_categories && !$include_product_categories) {
-    add_action('admin_notices', function () {
-      eum_display_error_message('Please select at least one post type or category option.');
-    });
-    return;
-  }
-  // If no statuses, default to 'publish'
-  if (empty($publish_status)) {
-    $publish_status = ['publish'];
+  // Store data in a transient for 1 hour
+  set_transient($export_id, $export_data, HOUR_IN_SECONDS);
+
+  wp_send_json_success([
+    'total_items' => $export_data['total'],
+    'export_id' => $export_id,
+  ]);
+}
+
+/**
+ * AJAX handler to process a batch of items.
+ */
+function eum_ajax_process_batch()
+{
+  check_ajax_referer('eum_export_nonce', 'nonce');
+
+  $export_id = sanitize_text_field($_POST['export_id']);
+  $export_data = get_transient($export_id);
+
+  if (!$export_data) {
+    wp_send_json_error(['message' => 'Export session expired or invalid.']);
   }
 
-  // Generate the CSV
-  try {
-    eum_generate_csv(
-      $post_types,
-      $include_homepage_latest,
-      $include_wp_categories,
-      $active_seo_plugin,
-      $include_product_categories,
-      $include_character_count,
-      $publish_status
-    );
-  } catch (Exception $e) {
-    // Handle any exceptions that might occur during CSV generation
-    add_action('admin_notices', function () use ($e) {
-      eum_display_error_message('Failed to generate CSV: ' . $e->getMessage());
-    });
-    return;
+  $batch_size = apply_filters('eum_export_batch_size', 50);
+  $start = $export_data['processed'];
+  $items_to_process = array_slice($export_data['items'], $start, $batch_size);
+
+  if (empty($items_to_process)) {
+    wp_send_json_success(['status' => 'complete']);
+  }
+
+  $upload_dir = wp_upload_dir();
+  $file_path = $upload_dir['basedir'] . '/eum-export-' . $export_id . '.csv';
+
+  $file_handle = fopen($file_path, 'a');
+
+  // Add CSV header if this is the first batch
+  if ($start === 0) {
+    $headers = ['Type', 'Title', 'URL', 'SEO Title', 'Meta Description'];
+    if (!empty($export_data['form_data']['eum_character_count'])) {
+      $headers[] = 'Title Length';
+      $headers[] = 'Description Length';
+    }
+    fputcsv($file_handle, $headers);
+  }
+
+  foreach ($items_to_process as $item) {
+    $row_data = eum_get_row_data($item, $export_data['form_data']);
+    if ($row_data) {
+      fputcsv($file_handle, $row_data);
+    }
+  }
+
+  fclose($file_handle);
+
+  $export_data['processed'] = $start + count($items_to_process);
+  set_transient($export_id, $export_data, HOUR_IN_SECONDS);
+
+  wp_send_json_success([
+    'status' => 'processing',
+    'processed' => $export_data['processed'],
+    'total' => $export_data['total'],
+  ]);
+}
+
+/**
+ * AJAX handler to download the file and clean up.
+ */
+function eum_ajax_download_file()
+{
+  check_ajax_referer('eum_export_nonce', 'nonce');
+
+  $export_id = sanitize_text_field($_GET['export_id']);
+  $upload_dir = wp_upload_dir();
+  $file_path = $upload_dir['basedir'] . '/eum-export-' . $export_id . '.csv';
+
+  if (file_exists($file_path)) {
+    $filename = eum_generate_csv_filename();
+
+    header('Content-Description: File Transfer');
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($file_path));
+
+    // Output UTF-8 BOM
+    echo "\xEF\xBB\xBF";
+    readfile($file_path);
+
+    // Clean up
+    unlink($file_path);
+    delete_transient($export_id);
+    exit;
+  }
+
+  wp_send_json_error(['message' => 'Export file not found.']);
+}
+
+/**
+ * Helper function to get data for a single CSV row.
+ */
+/**
+ * AJAX handler to cancel the export process.
+ */
+/**
+ * AJAX handler for previewing the export.
+ */
+function eum_ajax_preview_export()
+{
+  check_ajax_referer('eum_export_nonce', 'nonce');
+
+  // Reuse the same logic as starting an export, but limit to 10 items and don't create a file.
+  parse_str($_POST['form_data'], $form_data);
+
+  $include_posts = isset($form_data['include_post_types_post']) && $form_data['include_post_types_post'] === 'on';
+  $include_pages = isset($form_data['include_post_types_page']) && $form_data['include_post_types_page'] === 'on';
+  $include_homepage = isset($form_data['include_homepage_latest']) && $form_data['include_homepage_latest'] === 'on';
+  $include_categories = isset($form_data['include_wp_categories']) && $form_data['include_wp_categories'] === 'on';
+  $include_product_cats = isset($form_data['include_product_categories']) && $form_data['include_product_categories'] === 'on';
+  $publish_status = isset($form_data['eum_publish_status']) && is_array($form_data['eum_publish_status']) ? array_map('sanitize_text_field', $form_data['eum_publish_status']) : ['publish'];
+
+  $items_to_process = [];
+
+  if ($include_posts) {
+    $posts = get_posts(['post_type' => 'post', 'numberposts' => 10, 'post_status' => $publish_status]);
+    foreach ($posts as $post) {
+      $items_to_process[] = ['type' => 'post', 'id' => $post->ID];
+    }
+  }
+
+  if ($include_pages) {
+    $pages = get_posts(['post_type' => 'page', 'numberposts' => 10, 'post_status' => $publish_status]);
+    foreach ($pages as $page) {
+      $items_to_process[] = ['type' => 'post', 'id' => $page->ID];
+    }
+  }
+
+  if ($include_categories) {
+    $categories = get_terms(['taxonomy' => 'category', 'number' => 10]);
+    foreach ($categories as $category) {
+      $items_to_process[] = ['type' => 'term', 'id' => $category->term_id];
+    }
+  }
+
+  if ($include_product_cats && class_exists('WooCommerce')) {
+    $product_cats = get_terms(['taxonomy' => 'product_cat', 'number' => 10]);
+    foreach ($product_cats as $product_cat) {
+      $items_to_process[] = ['type' => 'term', 'id' => $product_cat->term_id];
+    }
+  }
+
+  if ($include_homepage) {
+    $items_to_process[] = ['type' => 'homepage', 'id' => 0];
+  }
+
+  if (empty($items_to_process)) {
+    wp_send_json_error(['message' => 'No items found for the selected criteria.']);
+  }
+
+  // Limit to 10 items for the preview
+  $preview_items = array_slice($items_to_process, 0, 10);
+
+  $preview_data = [];
+  $headers = ['Type', 'Name', 'URL', 'SEO Title', 'Meta Description'];
+  if (isset($form_data['include_char_count']) && $form_data['include_char_count'] === 'on') {
+    $headers[] = 'Title Length';
+    $headers[] = 'Desc. Length';
+  }
+  $preview_data[] = $headers;
+
+  foreach ($preview_items as $item) {
+    $preview_data[] = eum_get_row_data($item, $form_data);
+  }
+
+  wp_send_json_success(['data' => $preview_data]);
+}
+
+/**
+ * AJAX handler to cancel the export process.
+ */
+function eum_ajax_cancel_export()
+{
+  check_ajax_referer('eum_export_nonce', 'nonce');
+
+  if (isset($_POST['export_id'])) {
+    $export_id = sanitize_text_field($_POST['export_id']);
+
+    // Delete transient
+    delete_transient($export_id);
+
+    // Delete temporary file
+    $upload_dir = wp_upload_dir();
+    $file_path = $upload_dir['basedir'] . '/eum-export-' . $export_id . '.csv';
+    if (file_exists($file_path)) {
+      unlink($file_path);
+    }
+
+    wp_send_json_success(['message' => 'Export cancelled.']);
+  } else {
+    wp_send_json_error(['message' => 'No export ID provided.']);
   }
 }
-// Handle form submission
-add_action('admin_init', 'eum_handle_export_csv');
 
 /**
- * Generates the CSV file and streams it to the browser using WP_Filesystem.
+ * Helper function to get data for a single CSV row.
  */
-function eum_generate_csv(
-  $post_types,
-  $include_homepage_latest,
-  $include_wp_categories,
-  $seo_plugin,
-  $include_product_categories,
-  $include_character_count,
-  $publish_status
-) {
+function eum_get_row_data($item, $form_data)
+{
+  $active_seo_plugin = eum_detect_active_seo_plugin();
+  $plugin_file = $active_seo_plugin['plugin_file'];
+  $include_char_count = !empty($form_data['eum_character_count']);
 
-  // Prepare CSV headers
-  $headers = [
-    'Page Title',
-    'URL',
-    'Meta Title',
-    'Meta Description',
-    'Type',
-    'Categories',
-    'Status'
-  ];
-
-  if ($include_character_count) {
-    $headers[] = 'Meta Title Char. Count';
-    $headers[] = 'Description Char. Count';
-  }
-
-  // Prepare data for CSV
   $data = [];
 
-  // Include regular posts/pages/products
-  foreach ($post_types as $post_type) {
-    $paged = 1;
-    do {
-      $args = [
-        'post_type'      => $post_type,
-        'post_status'    => $publish_status,
-        'posts_per_page' => 100,
-        'paged'          => $paged,
+  switch ($item['type']) {
+    case 'post':
+      $post = get_post($item['id']);
+      if (!$post) break;
+      $meta = eum_get_post_meta($post, $plugin_file);
+      $data = [
+        get_post_type_object($post->post_type)->labels->singular_name,
+        $post->post_title,
+        get_permalink($post->ID),
+        $meta['title'],
+        $meta['desc'],
       ];
-      $query = new WP_Query($args);
-
-      // Iterate over each post object
-      foreach ($query->posts as $post) {
-        // Basic Info
-        $title   = htmlspecialchars_decode(get_the_title($post->ID));
-        $url     = get_permalink($post->ID);
-        $post_obj_label = get_post_type_object($post->post_type);
-        $type_label     = $post_obj_label && isset($post_obj_label->labels->singular_name)
-          ? $post_obj_label->labels->singular_name
-          : $post->post_type;
-
-        // Retrieve meta from a dedicated function
-        $meta = eum_get_post_meta($post, $seo_plugin['plugin_file']);
-        $meta_title = $meta['title'];
-        $meta_desc  = $meta['desc'];
-
-        // Category column
-        $cat_string = '';
-        if ($post->post_type === 'post') {
-          $post_cats = wp_get_post_terms($post->ID, 'category', ['fields' => 'names']);
-          $cat_string = !empty($post_cats) ? implode(', ', $post_cats) : '';
-        } elseif ($post->post_type === 'product') {
-          $product_cats = wp_get_post_terms($post->ID, 'product_cat', ['fields' => 'names']);
-          $cat_string = !empty($product_cats) ? implode(', ', $product_cats) : '';
-        }
-
-        $status_obj = get_post_status_object($post->post_status);
-        $status_label = $status_obj && isset($status_obj->label) ? $status_obj->label : $post->post_status;
-
-        $row = [
-          $title,
-          $url,
-          $meta_title,
-          $meta_desc,
-          $type_label,
-          $cat_string,
-          $status_label,
-        ];
-        if ($include_character_count) {
-          $row[] = strlen((string)$meta_title);
-          $row[] = strlen((string)$meta_desc);
-        }
-        $data[] = $row;
+      if ($include_char_count) {
+        $data[] = function_exists('mb_strlen') ? mb_strlen($meta['title']) : strlen($meta['title']);
+        $data[] = function_exists('mb_strlen') ? mb_strlen($meta['desc']) : strlen($meta['desc']);
       }
-      $paged++;
-    } while ($paged <= $query->max_num_pages);
-  }
+      break;
 
-  // Homepage (latest posts)
-  if ($include_homepage_latest && (int) get_option('page_on_front') === 0) {
-    $homepage_meta = eum_get_homepage_meta($seo_plugin['plugin_file']);
-    $row = [
-      'Homepage',
-      home_url('/'),
-      $homepage_meta['title'],
-      $homepage_meta['desc'],
-      'Front Page',
-      '',
-      'Published'
-    ];
-    if ($include_character_count) {
-      $row[] = strlen((string)$homepage_meta['title']);
-      $row[] = strlen((string)$homepage_meta['desc']);
-    }
-    $data[] = $row;
-  }
-
-  // Post Category Pages
-  if ($include_wp_categories) {
-    $wp_categories = get_terms([
-      'taxonomy'   => 'category',
-      'hide_empty' => false,
-    ]);
-    foreach ($wp_categories as $term) {
-      $term_meta = eum_get_term_meta($term, $seo_plugin['plugin_file'], 'category');
-      $row = [
+    case 'term':
+      $term = get_term($item['id'], $item['taxonomy']);
+      if (!$term || is_wp_error($term)) break;
+      $meta = eum_get_term_meta($term, $plugin_file);
+      $data = [
+        get_taxonomy($item['taxonomy'])->labels->singular_name,
         $term->name,
-        get_term_link($term),
-        $term_meta['title'],
-        $term_meta['desc'],
-        'Post Category',
-        '',
-        'Published'
+        get_term_link($term->term_id),
+        $meta['title'],
+        $meta['desc'],
       ];
-      if ($include_character_count) {
-        $row[] = strlen((string)$term_meta['title']);
-        $row[] = strlen((string)$term_meta['desc']);
+      if ($include_char_count) {
+        $data[] = function_exists('mb_strlen') ? mb_strlen($meta['title']) : strlen($meta['title']);
+        $data[] = function_exists('mb_strlen') ? mb_strlen($meta['desc']) : strlen($meta['desc']);
       }
-      $data[] = $row;
-    }
-  }
+      break;
 
-  // Product categories
-  if ($include_product_categories && in_array('product', $post_types, true)) {
-    $product_categories = get_terms([
-      'taxonomy'   => 'product_cat',
-      'hide_empty' => false,
-    ]);
-    foreach ($product_categories as $term) {
-      $term_meta = eum_get_term_meta($term, $seo_plugin['plugin_file'], 'product_cat');
-      $row = [
-        $term->name,
-        get_term_link($term),
-        $term_meta['title'],
-        $term_meta['desc'],
-        'Product Category',
-        $term->name, // or '', if you don't want it repeated
-        'Published'
+    case 'homepage':
+      $meta = eum_get_homepage_meta($plugin_file);
+      $data = [
+        'Homepage',
+        get_bloginfo('name'),
+        home_url('/'),
+        $meta['title'],
+        $meta['desc'],
       ];
-      if ($include_character_count) {
-        $row[] = strlen((string)$term_meta['title']);
-        $row[] = strlen((string)$term_meta['desc']);
+      if ($include_char_count) {
+        $data[] = function_exists('mb_strlen') ? mb_strlen($meta['title']) : strlen($meta['title']);
+        $data[] = function_exists('mb_strlen') ? mb_strlen($meta['desc']) : strlen($meta['desc']);
       }
-      $data[] = $row;
-    }
+      break;
   }
 
-  //  Build CSV in memory and use WP_Filesystem
-  $csv_handle = fopen('php://temp', 'r+'); // no direct file system calls
-  fputcsv($csv_handle, $headers);
-  foreach ($data as $row) {
-    fputcsv($csv_handle, $row);
-  }
-  rewind($csv_handle);
-  $csv_output = stream_get_contents($csv_handle);
-  fclose($csv_handle);
-
-  if (!function_exists('WP_Filesystem')) {
-    require_once ABSPATH . 'wp-admin/includes/file.php';
-  }
-  global $wp_filesystem;
-  WP_Filesystem();
-
-  $temp_file = wp_tempnam('csv-export');
-  if (!$temp_file) {
-    wp_die('Could not create temporary file for CSV export.');
-  }
-  $wp_filesystem->put_contents($temp_file, $csv_output, FS_CHMOD_FILE);
-  $file_contents = $wp_filesystem->get_contents($temp_file);
-  if ($file_contents === false) {
-    wp_die('Unable to read CSV data from temporary file.');
-  }
-
-  $filename = eum_generate_csv_filename();
-  header('Content-Type: text/csv; charset=UTF-8');
-  header('Content-Disposition: attachment; filename="' . $filename . '"');
-  header('Pragma: no-cache');
-  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-
-  // Output UTF-8 BOM
-  echo "\xEF\xBB\xBF";
-  echo $file_contents;
-
-  wp_delete_file($temp_file);
-  exit();
+  return $data;
 }
 
 /**
@@ -596,11 +658,15 @@ function eum_get_post_meta($post, $plugin_file)
     $yoast_meta_title = get_post_meta($post_id, '_yoast_wpseo_title', true);
 
     if (!empty($yoast_meta_title)) {
-      $meta_title = wpseo_replace_vars(htmlspecialchars_decode($yoast_meta_title), $post);
+      if (function_exists('wpseo_replace_vars')) {
+        $meta_title = wpseo_replace_vars(htmlspecialchars_decode($yoast_meta_title), $post);
+      }
     } else {
       // fallback to template
       $template_title = eum_get_yoast_title_template($post->post_type);
-      $meta_title     = wpseo_replace_vars(htmlspecialchars_decode($template_title), $post);
+      if (function_exists('wpseo_replace_vars')) {
+        $meta_title = wpseo_replace_vars(htmlspecialchars_decode($template_title), $post);
+      }
     }
     $yoast_desc = get_post_meta($post_id, '_yoast_wpseo_metadesc', true);
 
@@ -667,14 +733,20 @@ function eum_get_term_meta($term, $plugin_file, $taxonomy_type = 'category')
     $yoast_d = get_term_meta($term->term_id, '_yoast_wpseo_metadesc', true);
 
     if (!empty($yoast_t)) {
-      $meta_title = wpseo_replace_vars($yoast_t, (array)$term);
+      if (function_exists('wpseo_replace_vars')) {
+        $meta_title = wpseo_replace_vars($yoast_t, (array)$term);
+      }
     } else {
       // Possibly handle category template if you like:
       $template_cat = eum_get_yoast_title_template('category');
-      $meta_title   = wpseo_replace_vars($template_cat, (array)$term);
+      if (function_exists('wpseo_replace_vars')) {
+        $meta_title = wpseo_replace_vars($template_cat, (array)$term);
+      }
     }
     if (!empty($yoast_d)) {
-      $meta_desc  = wpseo_replace_vars($yoast_d, (array)$term);
+      if (function_exists('wpseo_replace_vars')) {
+        $meta_desc  = wpseo_replace_vars($yoast_d, (array)$term);
+      }
     }
   }
   // else fallback to $meta_title as default

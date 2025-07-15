@@ -1,0 +1,20 @@
+{
+  "php.stubs": ["pcntl", "wordpress", "*"],
+  "cSpell.words": [
+    "ABSPATH",
+    "AIOSEO",
+    "autodescription",
+    "bloginfo",
+    "metadesc",
+    "nopaging",
+    "numberposts",
+    "Polylang",
+    "rankmath",
+    "seopress",
+    "woocommerce",
+    "WPML",
+    "wpseo",
+    "XAMPP",
+    "Yoast"
+  ]
+}
