@@ -1,4 +1,65 @@
-/* Modal styles */
+/* Main Page Styles */
+.eum-export-page {
+    margin: 20px 0;
+    max-width: 1200px;
+}
+
+.eum-export-form {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    margin-top: 20px;
+}
+
+.eum-form-actions {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.eum-export-form h2 {
+    margin: 1.5em 0 0.5em;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.eum-export-form h2:first-child {
+    margin-top: 0;
+}
+
+.eum-export-form label {
+    display: block;
+    margin: 0.8em 0;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.eum-export-form input[type="checkbox"] {
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* Form Sections */
+.eum-form-section {
+    margin: 1.5em 0;
+    padding: 1em;
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+}
+
+.eum-form-section h3 {
+    margin-top: 0;
+    color: #23282d;
+}
+
+/* Buttons */
+.button + .button {
+    margin-left: 8px;
+}
+
+/* Modal Styles */
 .export-modal {
     display: none;
     position: fixed;
@@ -7,38 +68,196 @@
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.7);
-    z-index: 9999;
+    z-index: 999999;
     align-items: center;
     justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
-.modal-content {
+.export-modal .modal-content {
     background-color: #fff;
-    padding: 30px;
-    border-radius: 5px;
-    max-width: 500px;
-    width: 90%;
-    text-align: center;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    padding: 25px 30px;
+    border-radius: 3px;
+    max-width: 90%;
+    max-height: 90vh;
+    width: 900px;
+    overflow-y: auto;
+    box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
     position: relative;
+    animation: modalFadeIn 0.3s ease-out;
 }
 
-.close-modal {
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.export-modal .close-modal {
     position: absolute;
     top: 10px;
     right: 15px;
-    font-size: 24px;
+    font-size: 28px;
+    line-height: 1;
     cursor: pointer;
     background: none;
     border: none;
+    color: #646970;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.export-modal .close-modal:hover {
+    color: #000;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.export-modal h3 {
+    margin: 0 0 20px;
+    padding: 0;
+    color: #1d2327;
+    font-size: 1.3em;
+}
+
+/* Export Status */
+.export-status {
+    text-align: center;
+    padding: 30px 0;
+}
+
+.export-status p {
+    margin: 0 0 15px;
+    font-size: 15px;
+    color: #1d2327;
+}
+
+/* Preview Table */
+.preview-table-container {
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0 0 20px;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.preview-table-container table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.preview-table-container th,
+.preview-table-container td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e4e7;
+    vertical-align: top;
+    word-wrap: break-word;
+    max-width: 300px;
+}
+
+.preview-table-container th {
+    background-color: #f6f7f7;
+    font-weight: 600;
+    color: #1d2327;
+    border-bottom: 2px solid #c3c4c7;
+}
+
+.preview-table-container tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.preview-table-container tr:hover {
+    background-color: #f0f0f1;
+}
+
+/* Preview Actions */
+.preview-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    margin-top: 20px;
+}
+
+/* Error State */
+.export-modal .error-message {
+    color: #d63638;
+    padding: 10px 0;
+}
+
+.export-modal .error-message p {
+    margin: 0 0 15px;
+    font-size: 14px;
+}
+
+/* Responsive */
+@media screen and (max-width: 782px) {
+    .export-modal .modal-content {
+        width: 95%;
+        padding: 20px;
+    }
+    
+    .preview-actions {
+        flex-direction: column;
+    }
+    
+    .preview-actions .button {
+        width: 100%;
+        margin: 5px 0;
+    }
+}
+
+/* Loader Overlay */
+#eum-loader-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+}
+
+#eum-loader-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    padding: 30px;
+    border-radius: 5px;
+    text-align: center;
+    min-width: 300px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+#eum-loader-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
     color: #666;
 }
 
-.close-modal:hover {
-    color: #000;
+#eum-loader-text {
+    margin: 20px 0;
+    font-size: 16px;
 }
 
-/* Form styles */
+/* Form Elements */
 .form-table th {
     width: 200px;
 }
@@ -57,12 +276,12 @@
     cursor: pointer;
 }
 
-/* Button styles */
+/* Buttons */
 .button-primary.export-button {
     margin-top: 15px;
 }
 
-/* Responsive styles */
+/* Responsive Styles */
 @media screen and (max-width: 782px) {
     .form-table th {
         width: 100%;
@@ -73,5 +292,16 @@
     .form-table td {
         display: block;
         padding-top: 0;
+    }
+    
+    #eum-export-modal .modal-content {
+        width: 95%;
+        padding: 20px 15px;
+    }
+    
+    #eum-export-preview {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
     }
 }

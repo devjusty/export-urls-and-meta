@@ -180,128 +180,62 @@ wp_enqueue_script( 'export-urls-and-meta-admin' );
                 <?php endif; ?>
             </table>
             
-            <?php submit_button( __( 'Export to CSV', 'export-urls-and-meta' ), 'primary', 'eum_export', false, array( 'class' => 'export-button' ) ); ?>
+            <div class="eum-form-actions">
+                <?php 
+                submit_button( 
+                    __( 'Preview Export', 'export-urls-and-meta' ), 
+                    'secondary', 
+                    'eum_preview', 
+                    false, 
+                    array( 'class' => 'preview-button' ) 
+                );
+                
+                submit_button( 
+                    __( 'Export to CSV', 'export-urls-and-meta' ), 
+                    'primary', 
+                    'eum_export', 
+                    false, 
+                    array( 'class' => 'export-button' ) 
+                );
+                ?>
+            </div>
         </form>
     </div>
     
     <!-- Export Modal -->
-    <div class="export-modal" style="display: none;">
-        <div class="modal-content">
-            <button class="close-modal">&times;</button>
-            <p><?php esc_html_e( 'Preparing your export...', 'export-urls-and-meta' ); ?></p>
-            <p><span class="spinner is-active"></span></p>
-        </div>
+    <div class="export-modal">
+        <!-- Content will be dynamically inserted here by JavaScript -->
     </div>
 </div>
 
 <script type="text/javascript">
+// Localize script with translations and URLs
+var eumVars = {
+    ajaxUrl: '<?php echo esc_js( admin_url( 'admin-ajax.php' ) ); ?>',
+    nonce: '<?php echo esc_js( wp_create_nonce( 'eum_export_nonce' ) ); ?>',
+    messages: {
+        generatingPreview: '<?php echo esc_js( __( 'Generating preview...', 'export-urls-and-meta' ) ); ?>',
+        exporting: '<?php echo esc_js( __( 'Preparing your export...', 'export-urls-and-meta' ) ); ?>',
+        previewTitle: '<?php echo esc_js( __( 'Export Preview', 'export-urls-and-meta' ) ); ?>',
+        itemsFound: '<?php echo esc_js( __( 'items found', 'export-urls-and-meta' ) ); ?>',
+        exportAll: '<?php echo esc_js( __( 'Export All', 'export-urls-and-meta' ) ); ?>',
+        closePreview: '<?php echo esc_js( __( 'Close Preview', 'export-urls-and-meta' ) ); ?>',
+        close: '<?php echo esc_js( __( 'Close', 'export-urls-and-meta' ) ); ?>',
+        error: '<?php echo esc_js( __( 'An error occurred. Please try again.', 'export-urls-and-meta' ) ); ?>'
+    }
+};
+
 jQuery(document).ready(function($) {
     // Handle form submission
     $('.export-form').on('submit', function(e) {
         e.preventDefault();
-        
-        var $form = $(this);
-        var $submitBtn = $form.find('.export-button');
-        var $modal = $('.export-modal');
-        
-        // Check if at least one post type is selected
-        if ($form.find('input[name="eum_post_types[]"]:checked').length === 0) {
-            alert('<?php esc_html_e( 'Please select at least one post type.', 'export-urls-and-meta' ); ?>');
-            return false;
-        }
-        
-        // Check if at least one status is selected
-        if ($form.find('input[name="eum_publish_status[]"]:checked').length === 0) {
-            alert('<?php esc_html_e( 'Please select at least one post status.', 'export-urls-and-meta' ); ?>');
-            return false;
-        }
-        
-        // Show the modal
-        $modal.show();
-        
-        // Disable submit button to prevent double submission
-        $submitBtn.prop('disabled', true);
-        
-        // Submit the form via AJAX
-        $.ajax({
-            url: eum_ajax.ajax_url,
-            type: 'POST',
-            data: {
-                action: 'eum_export',
-                eum_export_nonce: eum_ajax.nonce,
-                eum_post_types: $form.find('input[name="eum_post_types[]"]:checked').map(function() {
-                    return $(this).val();
-                }).get(),
-                eum_publish_status: $form.find('input[name="eum_publish_status[]"]:checked').map(function() {
-                    return $(this).val();
-                }).get(),
-                eum_include_homepage: $form.find('input[name="eum_include_homepage"]').is(':checked') ? 1 : 0,
-                eum_include_categories: $form.find('input[name="eum_include_categories"]').is(':checked') ? 1 : 0,
-                eum_include_product_categories: $form.find('input[name="eum_include_product_categories"]').is(':checked') ? 1 : 0
-            },
-            xhrFields: {
-                responseType: 'blob' // Important for file download
-            },
-            success: function(response, status, xhr) {
-                // Hide the modal
-                $modal.hide();
-                
-                // Handle the file download
-                var filename = 'export-' + new Date().toISOString().slice(0, 10) + '.csv';
-                var disposition = xhr.getResponseHeader('Content-Disposition');
-                
-                if (disposition && disposition.indexOf('attachment') !== -1) {
-                    var filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-                    var matches = filenameRegex.exec(disposition);
-                    if (matches != null && matches[1]) {
-                        filename = matches[1].replace(/['"]/g, '');
-                    }
-                }
-                
-                var blob = new Blob([response], { type: xhr.getResponseHeader('Content-Type') || 'text/csv;charset=utf-8' });
-                
-                if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-                    // For IE and Edge
-                    window.navigator.msSaveOrOpenBlob(blob, filename);
-                } else {
-                    // For other browsers
-                    var downloadUrl = URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = downloadUrl;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(function() {
-                        document.body.removeChild(a);
-                        window.URL.revokeObjectURL(downloadUrl);
-                    }, 100);
-                }
-            },
-            error: function(xhr, status, error) {
-                $modal.hide();
-                alert(eum_ajax.error_text || 'An error occurred during export. Please try again.');
-                console.error('Export error:', error, xhr.responseText);
-            },
-            complete: function() {
-                // Re-enable the submit button
-                $submitBtn.prop('disabled', false);
-            }
-        });
-        
-        return false;
     });
     
-    // Close modal when clicking the close button or outside the modal
-    $(document).on('click', '.close-modal, .export-modal', function(e) {
-        // Only close if clicking the close button or the modal overlay (not the modal content)
-        if ($(e.target).hasClass('close-modal') || $(e.target).hasClass('export-modal')) {
-            $('.export-modal').hide();
+    // Add nonce to AJAX requests
+    $(document).ajaxSend(function(event, xhr, settings) {
+        if (settings.data && settings.data.indexOf('action=eum_export') !== -1) {
+            settings.data += '&eum_export_nonce=' + eumVars.nonce;
         }
-    });
-    
-    // Prevent clicks inside the modal content from closing the modal
-    $('.modal-content').on('click', function(e) {
-        e.stopPropagation();
     });
 });
 </script>

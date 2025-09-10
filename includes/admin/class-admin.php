@@ -38,7 +38,7 @@ class Export_Urls_And_Meta_Admin {
 	 * @since 0.1.0
 	 * @var Export_Urls_And_Meta_SEO_Integration
 	 */
-	private $seo_integration;
+	protected $seo_integration;
 
 	/**
 	 * Initialize the admin class.
@@ -184,13 +184,14 @@ class Export_Urls_And_Meta_Admin {
 			}
 			
 			// Get form data
+			$action = isset( $_POST['eum_action'] ) ? sanitize_text_field( $_POST['eum_action'] ) : 'export';
 			$post_types = isset( $_POST['eum_post_types'] ) ? array_map( 'sanitize_text_field', (array) $_POST['eum_post_types'] ) : array( 'post', 'page' );
 			$publish_status = isset( $_POST['eum_publish_status'] ) ? array_map( 'sanitize_text_field', (array) $_POST['eum_publish_status'] ) : array( 'publish' );
 			$include_homepage = isset( $_POST['eum_include_homepage'] ) ? (bool) $_POST['eum_include_homepage'] : false;
 			$include_categories = isset( $_POST['eum_include_categories'] ) ? (bool) $_POST['eum_include_categories'] : false;
 			$include_product_categories = isset( $_POST['eum_include_product_categories'] ) ? (bool) $_POST['eum_include_product_categories'] : false;
 
-			error_log('AJAX Export - Form data: ' . print_r($_POST, true));
+			error_log('AJAX ' . strtoupper($action) . ' - Form data: ' . print_r($_POST, true));
 
 			// Save settings
 			$this->settings = array(
@@ -208,14 +209,47 @@ class Export_Urls_And_Meta_Admin {
 			}
 
 			// Initialize the export class with the SEO integration instance
-			$export = new Export_Urls_And_Meta_Export( $this->seo_integration );
+			$export = new Export_Urls_And_Meta_Export( $this->get_seo_integration() );
+			
+			if ( 'preview' === $action ) {
+				// Get preview data (first 10 items)
+				$preview_data = $export->get_export_data( 
+					$post_types, 
+					$publish_status, 
+					$include_homepage, 
+					$include_categories, 
+					$include_product_categories, 
+					10 
+				);
+				
+				// Get headers from the first item if available
+				$headers = ! empty( $preview_data ) ? array_keys( $preview_data[0] ) : array();
+				
+				// Return preview data
+				wp_send_json_success( array(
+					'message' => __( 'Preview generated successfully!', 'export-urls-and-meta' ),
+					'preview' => true,
+					'headers' => $headers,
+					'rows' => $preview_data,
+					'count' => count( $preview_data ),
+				) );
+			} else {
+				// Generate the actual export file
+				$file_url = $export->generate_csv( $post_types, $publish_status, $include_homepage, $include_categories, $include_product_categories );
 
-			// Generate the export file
-			$export->generate_csv( $post_types, $publish_status, $include_homepage, $include_categories, $include_product_categories );
-			
-			// If we got here, something went wrong with the export
-			throw new Exception( __( 'Export failed to generate a file.', 'export-urls-and-meta' ) );
-			
+				if ( is_wp_error( $file_url ) ) {
+					throw new Exception( $file_url->get_error_message() );
+				}
+				
+				$result = $file_url;
+
+				// Return success response
+				wp_send_json_success( array(
+					'message' => __( 'Export completed successfully!', 'export-urls-and-meta' ),
+					'file' => $result,
+					'preview' => false
+				) );
+			}
 		} catch ( Exception $e ) {
 			status_header( 500 );
 			header( 'Content-Type: application/json; charset=utf-8' );
@@ -406,40 +440,57 @@ class Export_Urls_And_Meta_Admin {
 	 * @param string $hook The current admin page.
 	 */
 	public function enqueue_scripts( $hook ) {
+		// Only load on our plugin page
 		if ( 'tools_page_export-urls-and-meta' !== $hook ) {
 			return;
 		}
 
-		wp_enqueue_script(
+		// Get the plugin version from the main plugin file
+		$plugin_data = get_file_data(
+			EXPORT_URLS_AND_META_PLUGIN_FILE,
+			array('Version' => 'Version'),
+			'plugin'
+		);
+		$version = !empty($plugin_data['Version']) ? $plugin_data['Version'] : '1.0.0';
+
+		// Register and enqueue the admin script
+		wp_register_script(
 			'export-urls-and-meta-admin',
-			EXPORT_URLS_AND_META_PLUGIN_URL . 'assets/js/admin.js',
-			array( 'jquery' ),
-			filemtime( EXPORT_URLS_AND_META_PLUGIN_DIR . 'assets/js/admin.js' ),
+			trailingslashit(EXPORT_URLS_AND_META_PLUGIN_URL) . 'assets/js/export-urls-and-meta-admin.js',
+			array('jquery'),
+			$version,
 			true
 		);
 
-		// Localize the script with new data
+		// Add script attributes
+		wp_script_add_data('export-urls-and-meta-admin', 'crossorigin', 'anonymous');
+
+		// Enqueue the script
+		wp_enqueue_script('export-urls-and-meta-admin');
+
+		// Localize the script with data needed by JS
 		wp_localize_script(
 			'export-urls-and-meta-admin',
-			'eum_ajax',
+			'eumVars',
 			array(
-				'ajax_url' => admin_url( 'admin-ajax.php' ),
-				'nonce' => wp_create_nonce( 'eum_export_nonce' ),
-				'exporting_text' => __( 'Preparing your export...', 'export-urls-and-meta' ),
-				'error_text' => __( 'An error occurred during export. Please try again.', 'export-urls-and-meta' )
+				'ajaxUrl' => esc_url(admin_url('admin-ajax.php')),
+				'nonce' => wp_create_nonce('eum_export_nonce'),
+				'messages' => array(
+					'exporting' => esc_html__('Exporting...', 'export-urls-and-meta'),
+					'exportComplete' => esc_html__('Export complete!', 'export-urls-and-meta'),
+					'generatingPreview' => esc_html__('Generating preview...', 'export-urls-and-meta'),
+					'closePreview' => esc_html__('Close Preview', 'export-urls-and-meta'),
+					'noData' => esc_html__('No data found matching your criteria.', 'export-urls-and-meta'),
+					'error' => esc_html__('An error occurred. Please try again.', 'export-urls-and-meta')
+				)
 			)
 		);
 
-		// Localize script with data
-		wp_localize_script(
+		// Add inline script to handle any immediate JavaScript needs
+		wp_add_inline_script(
 			'export-urls-and-meta-admin',
-			'eum_vars',
-			array(
-				'ajax_url' => admin_url( 'admin-ajax.php' ),
-				'export_nonce' => wp_create_nonce( 'eum_export_nonce' ),
-				'exporting' => __( 'Exporting...', 'export-urls-and-meta' ),
-				'export_complete' => __( 'Export complete!', 'export-urls-and-meta' ),
-			)
+			'console.log("Export URLs and Meta admin script loaded");',
+			'after'
 		);
 	}
 
@@ -449,19 +500,38 @@ class Export_Urls_And_Meta_Admin {
 	 * @since 1.0.0
 	 * @param string $hook The current admin page.
 	 */
-	public function enqueue_styles( $hook ) {
+	public function enqueue_styles($hook) {
 		// Only load on our plugin page
-		if ( 'tools_page_export-urls-and-meta' !== $hook ) {
+		if ('tools_page_export-urls-and-meta' !== $hook) {
 			return;
 		}
 
+		// Get the plugin version from the main plugin file
+		$plugin_data = get_file_data(
+			EXPORT_URLS_AND_META_PLUGIN_FILE,
+			array('Version' => 'Version'),
+			'plugin'
+		);
+		$version = !empty($plugin_data['Version']) ? $plugin_data['Version'] : '1.0.0';
+
+		// Enqueue the admin styles
 		wp_enqueue_style(
 			'export-urls-and-meta-admin',
-			plugins_url( 'assets/css/admin.css', dirname( __FILE__ ) ),
+			trailingslashit(EXPORT_URLS_AND_META_PLUGIN_URL) . 'assets/css/admin.css',
 			array(),
-			'1.0.0',
+			$version,
 			'all'
 		);
+	}
+
+	/**
+	 * Get the SEO integration instance.
+	 *
+	 * @since 1.0.0
+	 * @return Export_Urls_And_Meta_SEO_Integration The SEO integration instance.
+	 */
+	public function get_seo_integration() {
+		return $this->seo_integration;
 	}
 
 	/**
