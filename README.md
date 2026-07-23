@@ -38,7 +38,7 @@ Export URLs and Meta is a WordPress plugin that lets you generate a CSV file con
 
 ## Requirements
 
-- WordPress 5.0 or higher
+- WordPress 5.8 or higher
 - PHP 7.0 or higher
 - For SEO meta title/description:
   - Yoast SEO, Rank Math, or SEOPress (fallback logic if none detected)
@@ -52,6 +52,20 @@ This plugin is licensed under the [GNU GPLv2 or later](https://www.gnu.org/licen
 For bug reports or feature requests, please [open an issue on GitHub](https://github.com/devjusty/export-urls-and-meta/issues) or email [devjusty@gmail.com](mailto:devjusty@gmail.com).
 
 ## Changelog
+
+### Version 0.0.13
+
+- Refactored export flow into include files and batch export classes
+- Added plugin update checker for GitHub Releases
+- Added release packaging workflow for installable zip assets
+- Added diagnostics tooling and admin export flow cleanup
+- Added developer tooling updates and editor configuration
+
+### Version 0.0.12
+
+- Fixed Rank Math data detection
+- Added settings link to plugin list
+- UI improvements for admin export flow
 
 ### Version 0.0.10
 

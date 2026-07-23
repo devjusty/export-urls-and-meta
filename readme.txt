@@ -4,7 +4,7 @@ Tags: seo, meta, export
 Requires at least: 5.8
 Tested up to: 6.7.2
 Requires PHP: 7.0
-Stable tag: 0.0.12
+Stable tag: 0.0.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -44,10 +44,21 @@ We use `register_uninstall_hook` to delete saved settings from the database when
 
 == Changelog ==
 
+= 0.0.13 =
+* Refactored export flow into include files and batch export classes
+* Added plugin update checker for GitHub Releases
+* Added release packaging workflow for installable zip assets
+* Added diagnostics tooling and admin export flow cleanup
+* Added developer tooling updates and editor configuration
+
+= 0.0.12 =
+* Fixed Rank Math data detection
+* Added settings link to plugin list
+* UI improvements for admin export flow
+
 = 0.0.10 =
 * Added Rank Math support
 * Added an option to include the homepage if no static front page is set
 * Added product category exports
 * Improved WP_Filesystem usage
 * Clean up settings with uninstall hook
-

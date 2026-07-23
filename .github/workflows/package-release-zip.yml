@@ -25,6 +25,7 @@ jobs:
             --exclude '.github' \
             --exclude '.agents' \
             --exclude '.DS_Store' \
+            --exclude '.vscode' \
             --exclude '.wp-env.json' \
             --exclude 'AGENTS.md' \
             --exclude 'node_modules' \
