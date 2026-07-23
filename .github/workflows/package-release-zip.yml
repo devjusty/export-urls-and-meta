@@ -1,0 +1,48 @@
+name: Package release zip
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  build-zip:
+    name: Build installable zip
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Stage plugin files
+        run: |
+          mkdir -p /tmp/export-urls-and-meta
+          rsync -a \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.agents' \
+            --exclude '.DS_Store' \
+            --exclude '.wp-env.json' \
+            --exclude 'AGENTS.md' \
+            --exclude 'node_modules' \
+            --exclude 'vendor' \
+            --exclude 'skills-lock.json' \
+            --exclude 'composer.lock' \
+            --exclude 'package-lock.json' \
+            --exclude 'pnpm-lock.yaml' \
+            --exclude 'yarn.lock' \
+            --exclude '*.zip' \
+            ./ /tmp/export-urls-and-meta/
+
+      - name: Create zip archive
+        run: |
+          cd /tmp
+          zip -r export-urls-and-meta.zip export-urls-and-meta
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: /tmp/export-urls-and-meta.zip
