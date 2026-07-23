@@ -17,6 +17,14 @@ if (!defined('ABSPATH')) {
   exit;
 }
 
+require_once __DIR__ . '/includes/class-export-request.php';
+require_once __DIR__ . '/includes/class-seo-plugin-detector.php';
+require_once __DIR__ . '/includes/class-seo-meta.php';
+require_once __DIR__ . '/includes/class-export-session.php';
+require_once __DIR__ . '/includes/admin/class-diagnostics.php';
+require_once __DIR__ . '/includes/export/class-export-manifest.php';
+require_once __DIR__ . '/includes/export/class-batch-export.php';
+
 /**
  * Register uninstall hook to delete stored settings
  */
@@ -60,6 +68,15 @@ function eum_add_admin_menu()
     'export-urls-and-meta',    // Menu slug
     'eum_render_admin_page'    // Callback function to render the page
   );
+
+  add_submenu_page(
+    'tools.php',
+    'Export URLs and Meta - Diagnostics',
+    'Export URLs and Meta: Diagnostics',
+    'manage_options',
+    'export-urls-and-meta-diagnostics',
+    'eum_render_diagnostics_page'
+  );
 }
 add_action('admin_menu', 'eum_add_admin_menu');
 
@@ -80,45 +97,28 @@ function eum_enqueue_admin_assets($hook)
   }
   wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.12');
   wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.12', true);
+  wp_localize_script('eum-admin-js', 'eum_ajax', array(
+    'ajax_url' => admin_url('admin-ajax.php'),
+    'nonce'    => wp_create_nonce('eum_export_nonce'),
+  ));
 }
 add_action('admin_enqueue_scripts', 'eum_enqueue_admin_assets');
 
 /**
  * Detect Active Seo Plugin(s)
  */
-function eum_detect_active_seo_plugin()
+function eum_detect_active_seo_plugin($display_error = true)
 {
-  $seo_plugins = [
-    'wordpress-seo/wp-seo.php' => 'Yoast SEO',
-    'all-in-one-seo-pack/all_in_one_seo_pack.php'  => 'All in One SEO Pack',
-    'autodescription/autodescription.php' => 'The SEO Framework',
-    'seo-by-rank-math/rank-math.php' => 'Rank Math',
-    'wp-seopress/seopress.php' => 'SEOPress',
-  ];
+  $active_seo_plugin = eum_detect_seo_plugin_from_active_plugins(get_option('active_plugins', array()));
 
-  $active_plugins = get_option('active_plugins');
-  $active_seo_plugins = [];
-
-  foreach ($seo_plugins as $plugin_file => $plugin_name) {
-    if (in_array($plugin_file, $active_plugins)) {
-      $active_seo_plugins[$plugin_file] = $plugin_name;
+  if ($active_seo_plugin === false) {
+    if ($display_error) {
+      eum_display_error_message('Multiple SEO plugins are active. Please deactivate all but one SEO plugin to ensure compatibility.');
     }
-  }
-
-  if (count($active_seo_plugins) > 1) {
-    eum_display_error_message('Multiple SEO plugins are active. Please deactivate all but one SEO plugin to ensure compatibility.');
     return false;
   }
 
-  if (empty($active_seo_plugins)) {
-    return ['plugin_file' => false, 'plugin_name' => 'None'];
-  }
-
-  $plugin_file = array_keys($active_seo_plugins)[0];
-  return [
-    'plugin_file' => $plugin_file,
-    'plugin_name' => $active_seo_plugins[$plugin_file]
-  ];
+  return $active_seo_plugin;
 }
 
 
@@ -168,7 +168,7 @@ function eum_render_admin_page()
       <p>Detected SEO Plugin: <strong><?php echo esc_html($active_seo_plugin['plugin_name']); ?></strong></p>
     <?php endif; ?>
 
-    <form method="post" action="" class="eum-export-form">
+    <form id="eum-export-form" method="post" action="" class="eum-export-form">
       <input type="hidden" name="eum_export_csv" value="1">
       <?php wp_nonce_field('eum_export_nonce', 'eum_export_nonce_field'); ?>
 
@@ -289,22 +289,14 @@ function eum_handle_export_csv()
     return;
   }
 
-  // Get sanitized inputs from form data
-  $post_types = isset($_POST['eum_post_types'])
-    ? array_map('sanitize_text_field', wp_unslash($_POST['eum_post_types']))
-    : array();
-
-  $include_homepage_latest = isset($_POST['include_homepage_latest']) ? 1 : 0;
-  $include_wp_categories = isset($_POST['eum_include_wp_categories']) ? 1 : 0;
-  $include_product_categories = isset($_POST['eum_include_product_categories'])
-    ? intval($_POST['eum_include_product_categories'])
-    : 0;
-
-  $publish_status = isset($_POST['eum_publish_status'])
-    ? array_map('sanitize_text_field', wp_unslash($_POST['eum_publish_status']))
-    : array('publish');
-
-  $include_character_count = isset($_POST['eum_character_count']) ? 1 : 0;
+  // Get normalized and sanitized inputs from form data.
+  $request = eum_normalize_export_request(wp_unslash($_POST));
+  $post_types = array_map('sanitize_text_field', $request['post_types']);
+  $include_homepage_latest = $request['include_homepage_latest'] ? 1 : 0;
+  $include_wp_categories = $request['include_wp_categories'] ? 1 : 0;
+  $include_product_categories = $request['include_product_categories'] ? 1 : 0;
+  $publish_status = array_map('sanitize_text_field', $request['publish_status']);
+  $include_character_count = $request['include_character_count'] ? 1 : 0;
 
   // Save these choices to the database so they persist
   $saved_settings = [
@@ -515,7 +507,7 @@ function eum_generate_csv(
   $csv_handle = fopen('php://temp', 'r+'); // no direct file system calls
   fputcsv($csv_handle, $headers);
   foreach ($data as $row) {
-    fputcsv($csv_handle, $row);
+    fputcsv($csv_handle, array_map('eum_escape_csv_formula', $row));
   }
   rewind($csv_handle);
   $csv_output = stream_get_contents($csv_handle);
@@ -598,6 +590,23 @@ function eum_get_post_meta($post, $plugin_file)
         }
       }
     }
+  } elseif ($plugin_file === 'aioseo/aioseo.php' || $plugin_file === 'all-in-one-seo-pack/all_in_one_seo_pack.php') {
+    $fallback_title = get_post_meta($post_id, '_aioseo_title', true);
+    $fallback_desc = get_post_meta($post_id, '_aioseo_description', true);
+    if (empty($fallback_title)) {
+      $fallback_title = get_post_meta($post_id, '_aioseop_title', true);
+    }
+    if (empty($fallback_desc)) {
+      $fallback_desc = get_post_meta($post_id, '_aioseop_description', true);
+    }
+    $aioseo_meta = eum_extract_aioseo_meta(get_post_meta($post_id, '_aioseo', true), $fallback_title, $fallback_desc);
+
+    if (!empty($aioseo_meta['title'])) {
+      $meta_title = $aioseo_meta['title'];
+    }
+    if (!empty($aioseo_meta['description'])) {
+      $meta_desc = $aioseo_meta['description'];
+    }
   } elseif ($plugin_file === 'wp-seopress/seopress.php') {
     // SEOPress
     $title = get_post_meta($post_id, '_seopress_titles_title', true);
@@ -670,6 +679,23 @@ function eum_get_term_meta($term, $plugin_file, $taxonomy_type = 'category')
     if (!empty($saved_desc)) {
       $meta_desc = $saved_desc;
     }
+  } elseif ($plugin_file === 'aioseo/aioseo.php' || $plugin_file === 'all-in-one-seo-pack/all_in_one_seo_pack.php') {
+    $fallback_title = get_term_meta($term->term_id, '_aioseo_title', true);
+    $fallback_desc = get_term_meta($term->term_id, '_aioseo_description', true);
+    if (empty($fallback_title)) {
+      $fallback_title = get_term_meta($term->term_id, '_aioseop_title', true);
+    }
+    if (empty($fallback_desc)) {
+      $fallback_desc = get_term_meta($term->term_id, '_aioseop_description', true);
+    }
+    $aioseo_meta = eum_extract_aioseo_meta(get_term_meta($term->term_id, '_aioseo', true), $fallback_title, $fallback_desc);
+
+    if (!empty($aioseo_meta['title'])) {
+      $meta_title = $aioseo_meta['title'];
+    }
+    if (!empty($aioseo_meta['description'])) {
+      $meta_desc = $aioseo_meta['description'];
+    }
   } elseif ($plugin_file === 'wp-seopress/seopress.php') {
     // Potential future: SEOPress term meta keys
     $title = get_term_meta($term->term_id, '_seopress_titles_title_term', true);
@@ -729,6 +755,18 @@ function eum_get_homepage_meta($plugin_file)
     }
     if (!empty($home_desc)) {
       $meta_desc  = $home_desc;
+    }
+  } elseif ($plugin_file === 'aioseo/aioseo.php' || $plugin_file === 'all-in-one-seo-pack/all_in_one_seo_pack.php') {
+    $aioseo_homepage = eum_extract_aioseo_homepage_meta(get_option('aioseo_options', array()));
+    if (empty($aioseo_homepage['title']) && empty($aioseo_homepage['description'])) {
+      $aioseo_homepage = eum_extract_aioseo_homepage_meta(get_option('aioseop_options', array()));
+    }
+
+    if (!empty($aioseo_homepage['title'])) {
+      $meta_title = $aioseo_homepage['title'];
+    }
+    if (!empty($aioseo_homepage['description'])) {
+      $meta_desc = $aioseo_homepage['description'];
     }
   }
   // else fallback to site name
