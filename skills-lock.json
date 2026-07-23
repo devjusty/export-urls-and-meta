@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "wordpress-pro": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/wordpress-pro/SKILL.md",
+      "computedHash": "ef569ff0920fa0948aca9a464118e13b9a9d655f40fd5b61526b7e53a80f451c"
+    },
+    "wordpress-router": {
+      "source": "automattic/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/wordpress-router/SKILL.md",
+      "computedHash": "7e1ab6a500f78ecbadde3b9f8277370f7f5d8bc01c014c7bb94f6d5948f2d109"
+    },
+    "wp-abilities-audit": {
+      "source": "wordpress/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/wp-abilities-audit/SKILL.md",
+      "computedHash": "2b1bcf75a733175b489efecb802fe094dd047252d4788f08637c9c9e2d053544"
+    },
+    "wp-abilities-verify": {
+      "source": "wordpress/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/wp-abilities-verify/SKILL.md",
+      "computedHash": "ff3a70b5cee7f6b653efbd3c546eac64edfbc12ff80eb400f4993e1933faee85"
+    },
+    "wp-plugin-directory-guidelines": {
+      "source": "wordpress/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/wp-plugin-directory-guidelines/SKILL.md",
+      "computedHash": "19c6227f6bae3827718f1091298cded0474ebedfcc5e5b1013a8650620a259fe"
+    }
+  }
+}

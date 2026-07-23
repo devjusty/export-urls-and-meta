@@ -12,6 +12,11 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.txt
 Text Domain: export-urls-and-meta
 */
 
+// Exit if accessed directly
+if (!defined('ABSPATH')) {
+  exit;
+}
+
 /**
  * Register uninstall hook to delete stored settings
  */
@@ -24,9 +29,22 @@ function eum_on_uninstall()
   delete_option('eum_export_settings');
 }
 
-// Exit if accessed directly
-if (!defined('ABSPATH')) {
-  exit;
+require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
+
+$github_api = new \YahnisElsts\PluginUpdateChecker\v5p7\Vcs\GitHubApi(
+  'https://github.com/devjusty/export-urls-and-meta/'
+);
+
+$myUpdateChecker = new \YahnisElsts\PluginUpdateChecker\v5p7\Vcs\PluginUpdateChecker(
+  $github_api,
+  __FILE__,
+  'export-urls-and-meta'
+);
+
+$myUpdateChecker->setBranch('main');
+
+if (method_exists($github_api, 'enableReleaseAssets')) {
+  $github_api->enableReleaseAssets('/\.zip($|[?&#])/i');
 }
 
 /**
