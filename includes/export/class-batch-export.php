@@ -290,10 +290,6 @@ function eum_process_batch_export_request() {
 	}
 
 	$batch = eum_get_batch_export_manifest_items( $session, $batch_size );
-	if ( ! eum_refresh_batch_export_lock( $lock_key, $lock_token ) ) {
-		fclose( $handle );
-		eum_fail_batch_export( $export_id, $session, $lock_key, 'Export lock expired. Retry export.', $lock_token );
-	}
 	if ( is_wp_error( $batch ) ) {
 		fclose( $handle );
 		eum_fail_batch_export( $export_id, $session, $lock_key, $batch->get_error_message(), $lock_token );
@@ -302,6 +298,7 @@ function eum_process_batch_export_request() {
 		fclose( $handle );
 		eum_fail_batch_export( $export_id, $session, $lock_key, 'Unable to read the next export batch. Retry export.', $lock_token );
 	}
+	$row_index = 0;
 	foreach ( $batch['items'] as $item ) {
 		$row = eum_get_batch_export_row( $item, $session['plugin_file'], $session['request'] );
 		if ( ! empty( $row ) ) {
@@ -311,10 +308,16 @@ function eum_process_batch_export_request() {
 				eum_fail_batch_export( $export_id, $session, $lock_key, 'Unable to write export row.', $lock_token );
 			}
 		}
-		if ( ! eum_refresh_batch_export_lock( $lock_key, $lock_token ) ) {
+		$row_index++;
+		// Refresh periodically on large batches; avoid per-row CAS which false-fails under object caches.
+		if ( 0 === $row_index % 25 && ! eum_refresh_batch_export_lock( $lock_key, $lock_token ) ) {
 			fclose( $handle );
 			eum_fail_batch_export( $export_id, $session, $lock_key, 'Export lock expired. Retry export.', $lock_token );
 		}
+	}
+	if ( ! eum_refresh_batch_export_lock( $lock_key, $lock_token ) ) {
+		fclose( $handle );
+		eum_fail_batch_export( $export_id, $session, $lock_key, 'Export lock expired. Retry export.', $lock_token );
 	}
 	if ( get_transient( 'eum_export_cancel_' . $export_id ) ) {
 		fclose( $handle );
@@ -370,25 +373,28 @@ function eum_cleanup_batch_export_files() {
  * @return bool Whether lock was refreshed.
  */
 function eum_refresh_batch_export_lock( $lock_key, $lock_token ) {
-	global $wpdb;
-
 	$lock = get_option( $lock_key );
 	if ( ! is_array( $lock ) || empty( $lock['token'] ) || $lock['token'] !== $lock_token || (int) $lock['expires'] <= time() ) {
 		return false;
 	}
-	$old_value      = maybe_serialize( $lock );
+
 	$lock['expires'] = time() + 600;
-	$new_value      = maybe_serialize( $lock );
-	$updated        = $wpdb->query(
-		$wpdb->prepare(
-			"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
-			$new_value,
-			$lock_key,
-			$old_value
-		)
-	);
+
+	// Token ownership is already verified. Prefer update_option over SQL CAS: object caches
+	// and serialized-value mismatches commonly make WHERE option_value = %s affect 0 rows.
+	$updated = update_option( $lock_key, $lock, false );
 	wp_cache_delete( $lock_key, 'options' );
-	return 1 === $updated;
+
+	// update_option returns false when the value is unchanged; treat still-owned lock as success.
+	if ( false === $updated ) {
+		$current = get_option( $lock_key );
+		return is_array( $current )
+			&& isset( $current['token'] )
+			&& $current['token'] === $lock_token
+			&& (int) $current['expires'] > time();
+	}
+
+	return true;
 }
 
 /**

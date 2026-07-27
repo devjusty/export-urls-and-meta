@@ -90,8 +90,8 @@ function eum_enqueue_admin_assets($hook)
   if ($hook !== 'tools_page_export-urls-and-meta') {
     return;
   }
-  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.13.1');
-  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.13.1', true);
+  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.13.2');
+  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.13.2', true);
   wp_localize_script('eum-admin-js', 'eum_ajax', array(
     'ajax_url' => admin_url('admin-ajax.php'),
     'nonce'    => wp_create_nonce('eum_export_nonce'),
