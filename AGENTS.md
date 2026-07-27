@@ -7,6 +7,6 @@
 - Keep plugin header version, hard-coded asset version strings in `export-urls-and-meta.php`, and `readme.txt` stable tag in sync when releasing.
 - Main PHP file is intentionally procedural and large; prefer small local edits there over splitting files unless refactor is clearly needed.
 - Preserve existing WordPress security patterns: nonce checks, `manage_options`, `wp_unslash`, sanitization on input, escaping on output.
-- Deactivate clears in-progress export residue (files/locks/transients) but keeps `eum_export_settings`; uninstall also deletes settings, last failure, and the uploads storage dir when empty.
+- Deactivate clears in-progress export residue (files/locks/transients) but keeps `eum_export_settings`; uninstall via `uninstall.php` also deletes settings, `eum_last_batch_failure`, and the uploads storage dir when empty.
 - Use `wp-env` for local WP testing if you need a site. CI runs lint + PHPUnit on PRs; release zips use the same `bin/package-plugin.php` script as local `composer package`.
 - Avoid committing generated artifacts or dependency directories unless explicitly required.

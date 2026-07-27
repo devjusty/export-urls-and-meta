@@ -53,6 +53,18 @@ For bug reports or feature requests, please [open an issue on GitHub](https://gi
 
 ## Changelog
 
+### Version 0.0.14
+
+- Fixed batch export lock refresh false failures under object caching
+- Fixed AJAX error handling so real batch failure messages surface in the UI
+- Fixed Rank Math post meta titles not being applied to exports
+- Fixed export modal Close button overlapping status text
+- Store export CSV/manifest files under uploads instead of volatile system temp
+- Added uninstall.php so settings and last-failure data are removed on delete
+- Added deactivate cleanup for in-progress export residue
+- Expanded Diagnostics with storage health, last batch failure, and clear-leftovers
+- Added local cross-platform package script, CI, and WPCS tooling
+
 ### Version 0.0.13
 
 - Refactored export flow into include files and batch export classes

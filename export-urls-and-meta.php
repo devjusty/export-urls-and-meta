@@ -3,7 +3,7 @@
 Plugin Name: Export URLs and Meta
 Plugin URI: https://github.com/devjusty/export-urls-and-meta
 Description: Plugin to export SEO titles, URLs, and meta descriptions to a CSV.
-Version: 0.0.13
+Version: 0.0.14
 Author: Justin Thompson
 Requires PHP: 7.0
 Tested up to: 6.7.2
@@ -29,7 +29,6 @@ require_once __DIR__ . '/includes/export/class-batch-export.php';
 /**
  * Register lifecycle hooks.
  */
-register_uninstall_hook( __FILE__, 'eum_uninstall_plugin' );
 register_deactivation_hook( __FILE__, 'eum_deactivate_plugin' );
 
 require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
@@ -90,8 +89,8 @@ function eum_enqueue_admin_assets($hook)
   if ($hook !== 'tools_page_export-urls-and-meta') {
     return;
   }
-  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.13.2');
-  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.13.2', true);
+  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.14');
+  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.14', true);
   wp_localize_script('eum-admin-js', 'eum_ajax', array(
     'ajax_url' => admin_url('admin-ajax.php'),
     'nonce'    => wp_create_nonce('eum_export_nonce'),

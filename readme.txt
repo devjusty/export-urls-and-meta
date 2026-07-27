@@ -4,7 +4,7 @@ Tags: seo, meta, export
 Requires at least: 5.8
 Tested up to: 6.7.2
 Requires PHP: 7.0
-Stable tag: 0.0.13
+Stable tag: 0.0.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -40,9 +40,20 @@ The plugin can detect this scenario and optionally add a row for the root URL.
 Yes. Simply check “Products” and optionally “Include Product Category Pages” to get product_cat exports.
 
 = How do I remove all plugin data upon deletion? =
-We use `register_uninstall_hook` to delete saved settings from the database when the plugin is deleted via the WordPress admin.
+Deleting the plugin from the WordPress admin runs `uninstall.php`, which removes saved settings, the last batch failure record, export locks/transients, and leftover export files under uploads.
 
 == Changelog ==
+
+= 0.0.14 =
+* Fixed batch export lock refresh false failures under object caching
+* Fixed AJAX error handling so real batch failure messages surface in the UI
+* Fixed Rank Math post meta titles not being applied to exports
+* Fixed export modal Close button overlapping status text
+* Store export CSV/manifest files under uploads instead of volatile system temp
+* Added uninstall.php so settings and last-failure data are removed on delete
+* Added deactivate cleanup for in-progress export residue
+* Expanded Diagnostics with storage health, last batch failure, and clear-leftovers
+* Added local cross-platform package script, CI, and WPCS tooling
 
 = 0.0.13 =
 * Refactored export flow into include files and batch export classes
