@@ -41,6 +41,51 @@ function eum_decode_export_manifest_record( $line ) {
 }
 
 /**
+ * Get writable private directory for export artifacts.
+ *
+ * Prefers an uploads subdirectory so hosts that wipe system temp between
+ * requests do not break multi-request batch exports.
+ *
+ * @return string Trailing-slashed directory path.
+ */
+function eum_get_export_storage_dir() {
+	$dir = '';
+
+	if ( function_exists( 'wp_upload_dir' ) ) {
+		$upload = wp_upload_dir();
+		if ( empty( $upload['error'] ) && ! empty( $upload['basedir'] ) ) {
+			$candidate = rtrim( $upload['basedir'], '/\\' ) . '/export-urls-and-meta';
+			if ( ! is_dir( $candidate ) && function_exists( 'wp_mkdir_p' ) ) {
+				wp_mkdir_p( $candidate );
+			}
+			$writable = function_exists( 'wp_is_writable' ) ? wp_is_writable( $candidate ) : is_writable( $candidate );
+			if ( is_dir( $candidate ) && $writable ) {
+				$index = $candidate . '/index.php';
+				if ( ! file_exists( $index ) ) {
+					file_put_contents( $index, "<?php\n// Silence is golden.\n" );
+				}
+				$htaccess = $candidate . '/.htaccess';
+				if ( ! file_exists( $htaccess ) ) {
+					file_put_contents( $htaccess, "Deny from all\n" );
+				}
+				$dir = $candidate . '/';
+			}
+		}
+	}
+
+	if ( '' === $dir ) {
+		$temp_dir = function_exists( 'get_temp_dir' ) ? get_temp_dir() : sys_get_temp_dir();
+		$dir      = rtrim( $temp_dir, '/\\' ) . '/';
+	}
+
+	if ( function_exists( 'apply_filters' ) ) {
+		$dir = apply_filters( 'eum_export_storage_dir', $dir );
+	}
+
+	return rtrim( str_replace( '\\', '/', (string) $dir ), '/' ) . '/';
+}
+
+/**
  * Get private paths for export files.
  *
  * @param string $export_id Export ID.
@@ -48,8 +93,7 @@ function eum_decode_export_manifest_record( $line ) {
  */
 function eum_get_export_manifest_paths( $export_id ) {
 	$export_id = preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $export_id );
-	$temp_dir  = function_exists( 'get_temp_dir' ) ? get_temp_dir() : sys_get_temp_dir();
-	$base      = rtrim( $temp_dir, '/\\' ) . DIRECTORY_SEPARATOR . $export_id;
+	$base      = eum_get_export_storage_dir() . $export_id;
 
 	return array(
 		'manifest' => $base . '.manifest',

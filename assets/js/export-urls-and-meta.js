@@ -73,14 +73,19 @@
 					$("#eum-loader-text").text("Processing...");
 					processBatch(response.data.total_items, requestToken);
 				})
-				.fail(() => {
+				.fail((jqXHR) => {
 					if (requestToken !== exportToken) {
 						return;
 					}
 
 					activeRequest = null;
 					activeRequestType = null;
-					handleError("Could not start the export process. Please try again.");
+					handleError(
+						getAjaxErrorMessage(
+							jqXHR,
+							"Could not start the export process. Please try again.",
+						),
+					);
 				});
 		});
 
@@ -177,15 +182,37 @@
 						processBatch(responseTotal, requestToken);
 					}, 50);
 				})
-				.fail(() => {
+				.fail((jqXHR) => {
 					if (requestToken !== exportToken) {
 						return;
 					}
 
 					activeRequest = null;
 					activeRequestType = null;
-					handleError("A critical error occurred while processing a batch.");
+					handleError(
+						getAjaxErrorMessage(
+							jqXHR,
+							"A critical error occurred while processing a batch.",
+						),
+					);
 				});
+		}
+
+		function getAjaxErrorMessage(jqXHR, fallback) {
+			const payload = jqXHR && jqXHR.responseJSON;
+			if (!payload) {
+				return fallback;
+			}
+
+			if (payload.data && typeof payload.data.message === "string" && payload.data.message) {
+				return payload.data.message;
+			}
+
+			if (typeof payload.data === "string" && payload.data) {
+				return payload.data;
+			}
+
+			return fallback;
 		}
 
 		function handleError(message) {

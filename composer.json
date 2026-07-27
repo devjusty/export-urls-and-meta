@@ -13,6 +13,7 @@
     "test": "phpunit",
     "phpcs": "phpcs",
     "phpcbf": "phpcbf",
+    "package": "php bin/package-plugin.php",
     "lint": [
       "@phpcs",
       "@test"

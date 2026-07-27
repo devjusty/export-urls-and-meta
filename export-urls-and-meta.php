@@ -21,21 +21,16 @@ require_once __DIR__ . '/includes/class-export-request.php';
 require_once __DIR__ . '/includes/class-seo-plugin-detector.php';
 require_once __DIR__ . '/includes/class-seo-meta.php';
 require_once __DIR__ . '/includes/class-export-session.php';
+require_once __DIR__ . '/includes/class-plugin-lifecycle.php';
 require_once __DIR__ . '/includes/admin/class-diagnostics.php';
 require_once __DIR__ . '/includes/export/class-export-manifest.php';
 require_once __DIR__ . '/includes/export/class-batch-export.php';
 
 /**
- * Register uninstall hook to delete stored settings
+ * Register lifecycle hooks.
  */
-register_uninstall_hook(__FILE__, 'eum_on_uninstall');
-function eum_on_uninstall()
-{
-  if (!defined('WP_UNINSTALL_PLUGIN')) {
-    exit;
-  }
-  delete_option('eum_export_settings');
-}
+register_uninstall_hook( __FILE__, 'eum_uninstall_plugin' );
+register_deactivation_hook( __FILE__, 'eum_deactivate_plugin' );
 
 require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
 
@@ -95,8 +90,8 @@ function eum_enqueue_admin_assets($hook)
   if ($hook !== 'tools_page_export-urls-and-meta') {
     return;
   }
-  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.13');
-  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.13', true);
+  wp_enqueue_style('eum-admin-css', plugin_dir_url(__FILE__) . 'assets/css/export-urls-and-meta.css', array(), '0.0.13.1');
+  wp_enqueue_script('eum-admin-js', plugin_dir_url(__FILE__) . 'assets/js/export-urls-and-meta.js', array('jquery'), '0.0.13.1', true);
   wp_localize_script('eum-admin-js', 'eum_ajax', array(
     'ajax_url' => admin_url('admin-ajax.php'),
     'nonce'    => wp_create_nonce('eum_export_nonce'),
@@ -573,22 +568,22 @@ function eum_get_post_meta($post, $plugin_file)
 
   if ($plugin_file === 'seo-by-rank-math/rank-math.php') {
     $saved_title = get_post_meta($post_id, 'rank_math_title', true);
+    $saved_desc  = get_post_meta($post_id, 'rank_math_description', true);
 
-    // Get description from Rank Math
-    $saved_desc = get_post_meta($post_id, 'rank_math_description', true);
+    if (!empty($saved_title) && is_string($saved_title)) {
+      $meta_title = $saved_title;
+    }
 
-    if (!empty($saved_desc)) {
+    if (!empty($saved_desc) && is_string($saved_desc)) {
       $meta_desc = $saved_desc;
-    } else {
+    } elseif ($post->post_type === 'post') {
       // Fallback to excerpt if no Rank Math description is set
-      if ($post->post_type === 'post') {
-        $raw_excerpt = get_post_field('post_excerpt', $post_id, 'raw');
-        if (!empty($raw_excerpt)) {
-          $maybe_excerpt = wp_strip_all_tags($raw_excerpt);
-          $maybe_excerpt = preg_replace("/\r\n|\r|\n/", ' ', $maybe_excerpt);
-          $maybe_excerpt = html_entity_decode($maybe_excerpt, ENT_QUOTES, get_option('blog_charset'));
-          $meta_desc = $maybe_excerpt;
-        }
+      $raw_excerpt = get_post_field('post_excerpt', $post_id, 'raw');
+      if (!empty($raw_excerpt)) {
+        $maybe_excerpt = wp_strip_all_tags($raw_excerpt);
+        $maybe_excerpt = preg_replace("/\r\n|\r|\n/", ' ', $maybe_excerpt);
+        $maybe_excerpt = html_entity_decode($maybe_excerpt, ENT_QUOTES, get_option('blog_charset'));
+        $meta_desc = $maybe_excerpt;
       }
     }
   } elseif ($plugin_file === 'aioseo/aioseo.php' || $plugin_file === 'all-in-one-seo-pack/all_in_one_seo_pack.php') {
@@ -651,8 +646,8 @@ function eum_get_post_meta($post, $plugin_file)
   }
 
   return [
-    'title' => htmlspecialchars_decode($meta_title),
-    'desc'  => htmlspecialchars_decode($meta_desc),
+    'title' => htmlspecialchars_decode((string) $meta_title),
+    'desc'  => htmlspecialchars_decode((string) $meta_desc),
   ];
 }
 
@@ -662,7 +657,7 @@ function eum_get_post_meta($post, $plugin_file)
 function eum_get_term_meta($term, $plugin_file, $taxonomy_type = 'category')
 {
   $term_title = $term->name;
-  $term_desc  = $term->description;
+  $term_desc  = is_string($term->description) ? $term->description : '';
   $site_name  = get_bloginfo('name');
 
   // default fallback
@@ -674,10 +669,10 @@ function eum_get_term_meta($term, $plugin_file, $taxonomy_type = 'category')
     $saved_title = get_term_meta($term->term_id, 'rank_math_title', true);
     $saved_desc  = get_term_meta($term->term_id, 'rank_math_description', true);
 
-    if (!empty($saved_title)) {
+    if (!empty($saved_title) && is_string($saved_title)) {
       $meta_title = $saved_title;
     }
-    if (!empty($saved_desc)) {
+    if (!empty($saved_desc) && is_string($saved_desc)) {
       $meta_desc = $saved_desc;
     }
   } elseif ($plugin_file === 'aioseo/aioseo.php' || $plugin_file === 'all-in-one-seo-pack/all_in_one_seo_pack.php') {
@@ -724,8 +719,8 @@ function eum_get_term_meta($term, $plugin_file, $taxonomy_type = 'category')
   }
   // else fallback to $meta_title as default
   return [
-    'title' => htmlspecialchars_decode($meta_title),
-    'desc'  => htmlspecialchars_decode($meta_desc),
+    'title' => htmlspecialchars_decode((string) $meta_title),
+    'desc'  => htmlspecialchars_decode((string) $meta_desc),
   ];
 }
 
@@ -751,10 +746,10 @@ function eum_get_homepage_meta($plugin_file)
     $home_title = get_option('rank_math_titles_homepage_title');
     $home_desc  = get_option('rank_math_titles_homepage_description');
 
-    if (!empty($home_title)) {
+    if (!empty($home_title) && is_string($home_title)) {
       $meta_title = $home_title;
     }
-    if (!empty($home_desc)) {
+    if (!empty($home_desc) && is_string($home_desc)) {
       $meta_desc  = $home_desc;
     }
   } elseif ($plugin_file === 'aioseo/aioseo.php' || $plugin_file === 'all-in-one-seo-pack/all_in_one_seo_pack.php') {
@@ -772,8 +767,8 @@ function eum_get_homepage_meta($plugin_file)
   }
   // else fallback to site name
   return [
-    'title' => htmlspecialchars_decode($meta_title),
-    'desc'  => htmlspecialchars_decode($meta_desc),
+    'title' => htmlspecialchars_decode((string) $meta_title),
+    'desc'  => htmlspecialchars_decode((string) $meta_desc),
   ];
 }
 

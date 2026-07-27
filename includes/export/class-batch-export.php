@@ -216,6 +216,31 @@ function eum_create_export_manifest( $request, $manifest_path ) {
  * @return void
  */
 function eum_ajax_process_batch() {
+	try {
+		eum_process_batch_export_request();
+	} catch ( Throwable $exception ) {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Surface unexpected batch fatals when debugging.
+			error_log( '[Export URLs and Meta] Uncaught batch error: ' . $exception->getMessage() );
+		}
+		if ( function_exists( 'eum_record_last_batch_failure' ) ) {
+			eum_record_last_batch_failure( $exception->getMessage() );
+		}
+		wp_send_json_error(
+			array(
+				'message' => 'A critical error occurred while processing a batch: ' . $exception->getMessage(),
+			),
+			500
+		);
+	}
+}
+
+/**
+ * Process one batch of export items.
+ *
+ * @return void
+ */
+function eum_process_batch_export_request() {
 	eum_authorize_batch_request();
 
 	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified in eum_authorize_batch_request().
@@ -320,7 +345,7 @@ function eum_ajax_process_batch() {
  * @return void
  */
 function eum_cleanup_batch_export_files() {
-	$files = glob( trailingslashit( get_temp_dir() ) . 'eum_export_*' );
+	$files = glob( eum_get_export_storage_dir() . 'eum_export_*' );
 	if ( ! is_array( $files ) ) {
 		return;
 	}
@@ -412,6 +437,14 @@ function eum_delete_batch_export_lock_value( $lock_key, $lock ) {
  * @return void
  */
 function eum_fail_batch_export( $export_id, $session, $lock_key, $message, $lock_token = '' ) {
+	if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Intentional debug aid for batch failures.
+		error_log( '[Export URLs and Meta] Batch export failed: ' . $message );
+	}
+	if ( function_exists( 'eum_record_last_batch_failure' ) ) {
+		eum_record_last_batch_failure( $message );
+	}
+
 	if ( $lock_token ) {
 		$lock = get_option( $lock_key );
 		if ( ! is_array( $lock ) || empty( $lock['token'] ) || $lock['token'] !== $lock_token ) {

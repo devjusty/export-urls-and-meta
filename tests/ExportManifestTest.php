@@ -27,6 +27,7 @@ final class ExportManifestTest extends TestCase {
 
         $this->assertStringEndsWith( 'eum_export_abc123.manifest', $paths['manifest'] );
         $this->assertStringEndsWith( 'eum_export_abc123.csv', $paths['csv'] );
+        $this->assertStringEndsWith( '/', eum_get_export_storage_dir() );
     }
 
     public function test_manifest_writer_tracks_record_count_and_byte_offset(): void {

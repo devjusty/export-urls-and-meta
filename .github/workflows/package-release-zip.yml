@@ -17,40 +17,15 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Stage plugin files
-        run: |
-          mkdir -p /tmp/export-urls-and-meta
-          rsync -a \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude '.agents' \
-            --exclude '.DS_Store' \
-            --exclude '.gitignore' \
-            --exclude '.vscode' \
-            --exclude '.wp-env.json' \
-            --exclude 'AGENTS.md' \
-            --exclude 'Test-Plan.md' \
-            --exclude 'docs' \
-            --exclude 'tests' \
-            --exclude 'node_modules' \
-            --exclude 'vendor' \
-            --exclude 'skills-lock.json' \
-            --exclude 'composer.json' \
-            --exclude 'composer.lock' \
-            --exclude 'phpcs.xml.dist' \
-            --exclude 'phpunit.xml.dist' \
-            --exclude '.phpunit.result.cache' \
-            --exclude '.phpunit.cache' \
-            --exclude 'package-lock.json' \
-            --exclude 'pnpm-lock.yaml' \
-            --exclude 'yarn.lock' \
-            --exclude '*.zip' \
-            ./ /tmp/export-urls-and-meta/
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: zip
 
-      - name: Create zip archive
-        run: |
-          cd /tmp
-          zip -r export-urls-and-meta.zip export-urls-and-meta
+      - name: Build installable zip
+        run: php bin/package-plugin.php --output=/tmp/export-urls-and-meta.zip
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2

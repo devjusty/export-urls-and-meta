@@ -1,0 +1,38 @@
+# Paths excluded from the installable plugin zip.
+# One pattern per line. Matching is against the repo-relative path.
+# Directory names match the directory itself and everything under it.
+# Leading "./" is optional. "#" starts a comment.
+
+.git
+.github
+.agents
+.vscode
+.worktrees
+.DS_Store
+.gitignore
+.wp-env.json
+.wp-env.override.json
+.phpunit.result.cache
+.phpunit.cache
+.distignore
+
+AGENTS.md
+Test-Plan.md
+docs
+tests
+bin
+dist
+
+node_modules
+vendor
+skills-lock.json
+composer.json
+composer.lock
+phpcs.xml.dist
+phpunit.xml.dist
+package.json
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+*.zip
