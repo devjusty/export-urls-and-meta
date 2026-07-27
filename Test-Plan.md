@@ -2,6 +2,7 @@
 
 ## Automated
 
+- Run `composer phpcs`.
 - Run `composer test`.
 - Run `php -l export-urls-and-meta.php`.
 - Run `php -l includes/export/class-batch-export.php`.

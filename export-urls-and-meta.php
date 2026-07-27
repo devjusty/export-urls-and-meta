@@ -43,13 +43,13 @@ $github_api = new \YahnisElsts\PluginUpdateChecker\v5p7\Vcs\GitHubApi(
   'https://github.com/devjusty/export-urls-and-meta/'
 );
 
-$myUpdateChecker = new \YahnisElsts\PluginUpdateChecker\v5p7\Vcs\PluginUpdateChecker(
+$my_update_checker = new \YahnisElsts\PluginUpdateChecker\v5p7\Vcs\PluginUpdateChecker(
   $github_api,
   __FILE__,
   'export-urls-and-meta'
 );
 
-$myUpdateChecker->setBranch('main');
+$my_update_checker->setBranch('main');
 
 if (method_exists($github_api, 'enableReleaseAssets')) {
   $github_api->enableReleaseAssets('/\.zip($|[?&#])/i');
@@ -537,6 +537,7 @@ function eum_generate_csv(
 
   // Output UTF-8 BOM
   echo "\xEF\xBB\xBF";
+  // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Binary CSV download body, not HTML.
   echo $file_contents;
 
   wp_delete_file($temp_file);

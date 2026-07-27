@@ -25,13 +25,22 @@ jobs:
             --exclude '.github' \
             --exclude '.agents' \
             --exclude '.DS_Store' \
+            --exclude '.gitignore' \
             --exclude '.vscode' \
             --exclude '.wp-env.json' \
             --exclude 'AGENTS.md' \
+            --exclude 'Test-Plan.md' \
+            --exclude 'docs' \
+            --exclude 'tests' \
             --exclude 'node_modules' \
             --exclude 'vendor' \
             --exclude 'skills-lock.json' \
+            --exclude 'composer.json' \
             --exclude 'composer.lock' \
+            --exclude 'phpcs.xml.dist' \
+            --exclude 'phpunit.xml.dist' \
+            --exclude '.phpunit.result.cache' \
+            --exclude '.phpunit.cache' \
             --exclude 'package-lock.json' \
             --exclude 'pnpm-lock.yaml' \
             --exclude 'yarn.lock' \

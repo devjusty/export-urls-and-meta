@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<ruleset name="Export URLs and Meta">
+	<description>WordPress coding standards for Export URLs and Meta.</description>
+
+	<file>export-urls-and-meta.php</file>
+	<file>includes</file>
+	<file>tests</file>
+
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/plugin-update-checker/*</exclude-pattern>
+
+	<arg name="basepath" value="."/>
+	<arg name="extensions" value="php"/>
+	<arg name="parallel" value="4"/>
+	<arg value="s"/>
+	<arg value="p"/>
+	<arg name="colors"/>
+
+	<!-- Fail CI on errors only; remaining AlternativeFunctions / docs noise stays as warnings. -->
+	<config name="ignore_warnings_on_exit" value="1"/>
+
+	<!--
+		Use the full WordPress ruleset, but skip pure formatting/layout sniffs while
+		the main procedural plugin file remains space-indented. Re-enable these when
+		the codebase is converted to WordPress tab indentation.
+	-->
+	<rule ref="WordPress">
+		<exclude name="Generic.WhiteSpace"/>
+		<exclude name="Universal.WhiteSpace"/>
+		<exclude name="WordPress.WhiteSpace"/>
+		<exclude name="PEAR.Functions.FunctionCallSignature"/>
+		<exclude name="Generic.Functions.OpeningFunctionBraceKernighanRitchie"/>
+		<exclude name="Generic.Functions.FunctionCallArgumentSpacing"/>
+		<exclude name="Squiz.Functions.FunctionDeclarationArgumentSpacing"/>
+		<exclude name="Squiz.Functions.MultiLineFunctionDeclaration"/>
+		<exclude name="PSR2.Methods.FunctionClosingBrace"/>
+		<exclude name="PSR2.ControlStructures.SwitchDeclaration"/>
+		<exclude name="Squiz.ControlStructures.ControlSignature"/>
+		<exclude name="Generic.Formatting.MultipleStatementAlignment"/>
+		<exclude name="Generic.Formatting.SpaceAfterCast"/>
+		<exclude name="WordPress.Arrays.ArrayIndentation"/>
+		<exclude name="WordPress.Arrays.ArrayDeclarationSpacing"/>
+		<exclude name="WordPress.Arrays.MultipleStatementAlignment"/>
+		<exclude name="NormalizedArrays.Arrays.ArrayBraceSpacing"/>
+		<exclude name="NormalizedArrays.Arrays.CommaAfterLast"/>
+		<exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+		<exclude name="Universal.Operators.DisallowStandalonePostIncrementDecrement"/>
+		<exclude name="Universal.ControlStructures.DisallowLonelyIf"/>
+		<exclude name="Squiz.Commenting"/>
+		<exclude name="Generic.Commenting"/>
+		<exclude name="PEAR.Commenting"/>
+		<exclude name="WordPress.PHP.YodaConditions"/>
+		<exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
+		<exclude name="Squiz.PHP.DisallowSizeFunctionsInLoops"/>
+	</rule>
+
+	<!-- PHPUnit test helpers often use camelCase method names from PHPUnit itself. -->
+	<rule ref="WordPress.NamingConventions.ValidFunctionName">
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.ValidVariableName">
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+</ruleset>

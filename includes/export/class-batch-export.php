@@ -38,6 +38,8 @@ function eum_authorize_batch_request() {
 function eum_ajax_start_export() {
 	eum_authorize_batch_request();
 
+	// Nonce verified in eum_authorize_batch_request(); values sanitized after parse_str.
+	// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 	$serialized = isset( $_POST['form_data'] ) ? wp_unslash( $_POST['form_data'] ) : '';
 	$form_data  = array();
 	parse_str( is_string( $serialized ) ? $serialized : '', $form_data );
@@ -216,6 +218,7 @@ function eum_create_export_manifest( $request, $manifest_path ) {
 function eum_ajax_process_batch() {
 	eum_authorize_batch_request();
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified in eum_authorize_batch_request().
 	$export_id = isset( $_POST['export_id'] ) ? sanitize_text_field( wp_unslash( $_POST['export_id'] ) ) : '';
 	$session   = get_transient( $export_id );
 	if ( ! eum_export_session_user_can_access( $session, get_current_user_id() ) ) {
@@ -595,6 +598,7 @@ function eum_ajax_download_file() {
 function eum_ajax_cancel_export() {
 	eum_authorize_batch_request();
 
+	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified in eum_authorize_batch_request().
 	$export_id = isset( $_POST['export_id'] ) ? sanitize_text_field( wp_unslash( $_POST['export_id'] ) ) : '';
 	$session   = get_transient( $export_id );
 	if ( ! eum_export_session_user_can_access( $session, get_current_user_id() ) ) {
